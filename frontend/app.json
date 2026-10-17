@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "ComicGrade AI",
+    "slug": "comicgrade-ai",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "scheme": "comicgrade",
+    "backgroundColor": "#0a0a12",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.berylm1.comicgradeai",
+      "infoPlist": {
+        "NSCameraUsageDescription": "ComicGrade AI uses the camera to scan comic covers and spines for identification and grading.",
+        "NSPhotoLibraryAddUsageDescription": "ComicGrade AI saves your scanned covers to your photo library."
+      }
+    },
+    "android": {
+      "package": "com.berylm1.comicgradeai",
+      "permissions": ["CAMERA", "WRITE_EXTERNAL_STORAGE"]
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow ComicGrade AI to scan comic covers."
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "savePhotosPermission": "Allow ComicGrade AI to save scanned covers.",
+          "isAccessMediaLocationEnabled": false
+        }
+      ]
+    ]
+  }
+}

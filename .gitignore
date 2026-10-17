@@ -1,0 +1,21 @@
+node_modules/
+.expo/
+dist/
+web-build/
+*.orig.*
+
+# Env secrets
+.env
+.env.local
+
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Logs
+*.log
