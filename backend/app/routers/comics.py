@@ -17,11 +17,16 @@ router = APIRouter(prefix="/comics", tags=["comics"])
 @router.get("", response_model=list[ComicOut])
 def list_comics(
     user_id: Optional[str] = Query(None, description="Filter by Supabase user id"),
+    grade_type: Optional[str] = Query(
+        None, description="Filter by grade type: raw | cgc | cbcs | pgx | other"
+    ),
     sb=Depends(get_supabase),
 ):
     query = sb.table("comics").select("*").order("created_at", desc=True)
     if user_id:
         query = query.eq("user_id", user_id)
+    if grade_type:
+        query = query.eq("grade_type", grade_type)
     data = query.execute().data or []
     return [ComicOut(**row) for row in data]
 

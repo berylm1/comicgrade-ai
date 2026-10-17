@@ -91,6 +91,11 @@ export default function ComicDetailScreen({ route }: Props) {
           <Text className="text-neutral-400">
             #{comic.issue_number} · {comic.publisher}
           </Text>
+          <Text className="text-pop-cyan text-xs font-bold mt-1 uppercase">
+            {comic.grade_type && comic.grade_type !== 'raw'
+              ? `${comic.grade_type} slab${comic.slab_cert_number ? ` · cert ${comic.slab_cert_number}` : ''}`
+              : 'Raw · AI estimate'}
+          </Text>
         </View>
         <GradeBadge grade={comic.estimated_grade} />
       </View>

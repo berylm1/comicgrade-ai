@@ -7,6 +7,9 @@ export interface Comic {
   publisher: string;
   cover_image_url?: string | null;
   estimated_grade?: number | null;
+  /** 'raw' = our camera/AI estimate; others = professionally slabbed */
+  grade_type?: 'raw' | 'cgc' | 'cbcs' | 'pgx' | 'other';
+  slab_cert_number?: string | null;
   current_market_value?: number | null;
   user_id?: string | null;
   created_at?: string | null;

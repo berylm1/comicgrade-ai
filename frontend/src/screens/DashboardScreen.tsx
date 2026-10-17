@@ -1,10 +1,30 @@
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { api } from '../lib/api';
 import type { Comic } from '../types';
 import { StatChip } from '../components/ui';
+
+type ValueLens = 'all' | 'raw' | 'certified';
+
+const LENSES: { key: ValueLens; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'raw', label: 'Raw est.' },
+  { key: 'certified', label: 'Slabbed' },
+];
+
+function inLens(comic: Comic, lens: ValueLens): boolean {
+  if (lens === 'raw') return (comic.grade_type ?? 'raw') === 'raw';
+  if (lens === 'certified') return comic.grade_type != null && comic.grade_type !== 'raw';
+  return true;
+}
 
 function gradeTier(grade?: number | null): 'high' | 'mid' | 'low' | 'none' {
   if (grade == null) return 'none';
@@ -16,6 +36,7 @@ function gradeTier(grade?: number | null): 'high' | 'mid' | 'low' | 'none' {
 /** Valuation dashboard: aggregate stats + top-movers list. */
 export default function DashboardScreen() {
   const [comics, setComics] = useState<Comic[]>([]);
+  const [lens, setLens] = useState<ValueLens>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,13 +53,14 @@ export default function DashboardScreen() {
     }, []),
   );
 
-  const valued = comics.filter((c) => c.current_market_value != null);
+  const lensComics = comics.filter((c) => inLens(c, lens));
+  const valued = lensComics.filter((c) => c.current_market_value != null);
   const totalValue = valued.reduce((sum, c) => sum + (c.current_market_value ?? 0), 0);
-  const graded = comics.filter((c) => c.estimated_grade != null);
+  const graded = lensComics.filter((c) => c.estimated_grade != null);
   const avgGrade = graded.length
     ? graded.reduce((s, c) => s + (c.estimated_grade ?? 0), 0) / graded.length
     : 0;
-  const gems = comics.filter((c) => gradeTier(c.estimated_grade) === 'high');
+  const gems = lensComics.filter((c) => gradeTier(c.estimated_grade) === 'high');
   const topBooks = [...valued].sort(
     (a, b) => (b.current_market_value ?? 0) - (a.current_market_value ?? 0),
   );
@@ -50,10 +72,32 @@ export default function DashboardScreen() {
       </Text>
       <Text className="text-white text-3xl font-bold mt-1">Collection Dashboard</Text>
 
+      {/* Raw vs slabbed value lens */}
+      <View className="flex-row gap-2 mt-4">
+        {LENSES.map(({ key, label }) => {
+          const active = lens === key;
+          return (
+            <Pressable
+              key={key}
+              onPress={() => setLens(key)}
+              className={`px-4 py-2 rounded-full border ${
+                active
+                  ? 'border-pop-yellow bg-pop-yellow'
+                  : 'border-ink-800 bg-ink-900'
+              }`}
+            >
+              <Text className={`text-xs font-bold ${active ? 'text-ink-950' : 'text-neutral-300'}`}>
+                {label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
       {error && <Text className="text-pop-red mt-3">{error}</Text>}
 
       <View className="flex-row gap-3 mt-6">
-        <StatChip label="Books" value={String(comics.length)} />
+        <StatChip label="Books" value={String(lensComics.length)} />
         <StatChip label="Est. Value" value={`$${totalValue.toFixed(2)}`} />
       </View>
       <View className="flex-row gap-3 mt-3">

@@ -24,6 +24,9 @@ class ComicCreate(BaseModel):
     publisher: str = "Unknown"
     cover_image_url: Optional[str] = None
     estimated_grade: Optional[float] = Field(None, ge=0.1, le=10.0)
+    # 'raw' = our camera/AI estimate; others = professionally slabbed
+    grade_type: Literal["raw", "cgc", "cbcs", "pgx", "other"] = "raw"
+    slab_cert_number: Optional[str] = None
     current_market_value: Optional[float] = Field(None, ge=0)
     user_id: Optional[str] = None
 
@@ -35,6 +38,8 @@ class ComicOut(BaseModel):
     publisher: str
     cover_image_url: Optional[str] = None
     estimated_grade: Optional[float] = None
+    grade_type: str = "raw"
+    slab_cert_number: Optional[str] = None
     current_market_value: Optional[float] = None
     user_id: Optional[str] = None
     created_at: Optional[datetime] = None
