@@ -55,6 +55,9 @@ export const api = {
   listPrices: (id: string) =>
     fetch(`${BASE}/comics/${id}/prices`).then(handle<PricePoint[]>),
 
+  refreshValue: (id: string) =>
+    fetch(`${BASE}/comics/${id}/refresh_value`, { method: 'POST' }).then(handle<PricePoint>),
+
   addPrice: (id: string, price: number, source = 'manual') =>
     fetch(`${BASE}/comics/${id}/prices?price=${price}&source=${source}`, {
       method: 'POST',

@@ -18,6 +18,9 @@ class Settings:
     openai_api_key: str | None = os.getenv("OPENAI_API_KEY") or None
     openai_vision_model: str = os.getenv("OPENAI_VISION_MODEL", "gpt-4o-mini")
 
+    # ---- Valuation sources ----
+    gocollect_api_key: str = os.getenv("GOCOLLECT_API_KEY", "")
+
     storage_bucket: str = os.getenv("STORAGE_BUCKET", "cover-images")
 
 

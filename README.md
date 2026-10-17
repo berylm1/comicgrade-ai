@@ -46,6 +46,7 @@ comicgrade-ai/
 2. In the SQL editor, run:
    1. `supabase/migrations/001_initial_schema.sql`
    2. `supabase/migrations/002_storage_bucket.sql`
+   3. `supabase/migrations/003_grade_type.sql` (raw vs slabbed separation)
 
    (Or use the Supabase CLI: `supabase link --project-ref <ref> && supabase db push`.)
 3. Create a test user under **Authentication → Users** (the backend accepts an optional `user_id` on comic creation).
@@ -66,6 +67,7 @@ uvicorn app.main:app --reload --port 8000
 - `GET /health` — liveness check
 - `POST /vision/analyze` — accepts a multipart `image` upload, returns `{title, issue_number, publisher, tentative_grade, ...}`. Works out of the box with the **mock** provider; set `VISION_PROVIDER=openai` + `OPENAI_API_KEY` in `.env` for real vision grading.
 - `POST /comics/{id}/prices?price=249.99&source=ebay` — logs a price point and updates `current_market_value`.
+- `POST /comics/{id}/refresh_value` — re-values a comic from the source matching its `grade_type`: **slabbed** books (cgc/cbcs/pgx) price via the **GoCollect Insights API** (grade-keyed: `GET /v1/insights/item/{id}?grade=9.8`, needs `GOCOLLECT_API_KEY` — free account = basic API access, full FMV = Pro/Enterprise); **raw** books use the built-in mock raw-comps provider until a raw comps partner is wired (eBay's sold-listing APIs were decommissioned Feb 2025). Every refresh writes a `price_history` row tagged with the source name, so provenance is auditable in the UI.
 
 ## 4. Frontend (Expo)
 

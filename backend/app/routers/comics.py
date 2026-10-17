@@ -90,6 +90,49 @@ def add_price(
     return PricePointOut(**res.data[0])
 
 
+# ---------------------- valuation refresh ----------------------
+
+
+@router.post("/{comic_id}/refresh_value", response_model=PricePointOut)
+async def refresh_value(comic_id: str, sb=Depends(get_supabase)):
+    """Re-value a comic from the source matching its grade_type.
+
+    Slabbed books (cgc/cbcs/pgx) price via the GoCollect Insights API
+    (grade-keyed); raw books use the raw-comps provider (mock until a raw
+    comps partner is wired). Result lands in price_history with the source
+    name and syncs current_market_value.
+    """
+    from ..pricing import provider_for_grade_type
+
+    res = sb.table("comics").select("*").eq("id", comic_id).maybe_single().execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Comic not found")
+    comic = res.data
+
+    provider = provider_for_grade_type(comic.get("grade_type"))
+    try:
+        quote = await provider.quote(
+            title=comic["title"],
+            issue_number=comic["issue_number"],
+            grade=comic.get("estimated_grade"),
+            slab_cert_number=comic.get("slab_cert_number"),
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:  # network / provider errors
+        raise HTTPException(status_code=502, detail=f"Price source error: {exc}")
+
+    row = {
+        "comic_id": comic_id,
+        "price": quote.value,
+        "source": quote.source,
+        "sale_date": str(date.today()),
+    }
+    point = sb.table("price_history").insert(row).execute().data[0]
+    sb.table("comics").update({"current_market_value": quote.value}).eq("id", comic_id).execute()
+    return PricePointOut(**point)
+
+
 # ---------------------- cover image upload ----------------------
 
 

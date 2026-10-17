@@ -24,6 +24,7 @@ export default function ComicDetailScreen({ route }: Props) {
   const [prices, setPrices] = useState<PricePoint[]>([]);
   const [priceInput, setPriceInput] = useState('');
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -42,6 +43,22 @@ export default function ComicDetailScreen({ route }: Props) {
       load();
     }, [load]),
   );
+
+  const refreshValue = async () => {
+    setRefreshing(true);
+    try {
+      const point = await api.refreshValue(comicId);
+      Alert.alert(
+        'Value refreshed',
+        `$${point.price.toFixed(2)} · source: ${point.source}`,
+      );
+      await load();
+    } catch (err: any) {
+      Alert.alert('Refresh failed', err?.message ?? 'Could not refresh value');
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const addPrice = async () => {
     const price = parseFloat(priceInput);
@@ -115,6 +132,12 @@ export default function ComicDetailScreen({ route }: Props) {
               {delta >= 0 ? '▲' : '▼'} ${Math.abs(delta).toFixed(2)} since first sale
             </Text>
           )}
+          <Text
+            className="mt-2 self-start rounded-full border border-pop-cyan px-3 py-1 text-xs font-bold text-pop-cyan"
+            onPress={refreshing ? undefined : refreshValue}
+          >
+            {refreshing ? 'Refreshing…' : '↻ Refresh value'}
+          </Text>
         </View>
       </View>
 
