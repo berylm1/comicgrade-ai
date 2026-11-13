@@ -1,0 +1,304 @@
+{
+ "_note": "Generated from frontend/src/lib/grading.ts; backend/app/grading.py must match.",
+ "seeded": {
+  "Amazing Spider-Man#300": [
+   0.31339698820374906,
+   0.6244838687125593,
+   0.7606797022745013
+  ],
+  "Café ünï#1": [
+   0.09257415169849992,
+   0.7719121223781258,
+   0.2525258294772357
+  ]
+ },
+ "reports": [
+  {
+   "comic": {
+    "id": "x",
+    "title": "Amazing Spider-Man",
+    "issue_number": "300",
+    "estimated_grade": 9.2,
+    "grade_type": "raw",
+    "current_market_value": 610
+   },
+   "report": {
+    "comic_id": "x",
+    "grade": 9.2,
+    "grade_low": 8.9,
+    "grade_high": 9.4,
+    "confidence": 0.82,
+    "defects": [
+     {
+      "area": "Corners",
+      "score": 8.9,
+      "note": "Light blunting, lower right"
+     },
+     {
+      "area": "Spine",
+      "score": 9.3,
+      "note": "2 small non-color-breaking ticks"
+     },
+     {
+      "area": "Edges",
+      "score": 9.5,
+      "note": "Clean cut, no chipping"
+     },
+     {
+      "area": "Surface",
+      "score": 9.2,
+      "note": "Faint finger bend, back cover"
+     },
+     {
+      "area": "Color",
+      "score": 9.5,
+      "note": "Deep blacks, no fading"
+     },
+     {
+      "area": "Centering",
+      "score": 9.3,
+      "note": "Shifted slightly left"
+     }
+    ],
+    "exterior_only": true,
+    "slab": {
+     "raw_value": 610,
+     "slabbed_value": 1068,
+     "grading_fee": 150,
+     "shipping": 22,
+     "net_uplift": 286,
+     "turnaround_days": 20,
+     "verdict": "submit"
+    }
+   }
+  },
+  {
+   "comic": {
+    "id": "y",
+    "title": "Saga",
+    "issue_number": "1",
+    "estimated_grade": 9.6,
+    "grade_type": "raw",
+    "current_market_value": 180
+   },
+   "report": {
+    "comic_id": "y",
+    "grade": 9.6,
+    "grade_low": 9.4,
+    "grade_high": 9.7,
+    "confidence": 0.88,
+    "defects": [
+     {
+      "area": "Corners",
+      "score": 8.9,
+      "note": "Light blunting, lower right"
+     },
+     {
+      "area": "Spine",
+      "score": 9.8,
+      "note": "Flat, no stress lines"
+     },
+     {
+      "area": "Edges",
+      "score": 9.1,
+      "note": "Minor wear along the top edge"
+     },
+     {
+      "area": "Surface",
+      "score": 9.4,
+      "note": "High gloss, no scuffs"
+     },
+     {
+      "area": "Color",
+      "score": 9.4,
+      "note": "Deep blacks, no fading"
+     },
+     {
+      "area": "Centering",
+      "score": 10,
+      "note": "Well centered"
+     }
+    ],
+    "exterior_only": true,
+    "slab": {
+     "raw_value": 180,
+     "slabbed_value": 414,
+     "grading_fee": 75,
+     "shipping": 22,
+     "net_uplift": 137,
+     "turnaround_days": 35,
+     "verdict": "submit"
+    }
+   }
+  },
+  {
+   "comic": {
+    "id": "z",
+    "title": "New Mutants",
+    "issue_number": "98",
+    "estimated_grade": 9.8,
+    "grade_type": "cgc",
+    "current_market_value": 1050
+   },
+   "report": {
+    "comic_id": "z",
+    "grade": 9.8,
+    "grade_low": 9.6,
+    "grade_high": 9.9,
+    "confidence": 0.88,
+    "defects": [
+     {
+      "area": "Corners",
+      "score": 10,
+      "note": "Sharp on all four"
+     },
+     {
+      "area": "Spine",
+      "score": 9.1,
+      "note": "2 small non-color-breaking ticks"
+     },
+     {
+      "area": "Edges",
+      "score": 9.9,
+      "note": "Clean cut, no chipping"
+     },
+     {
+      "area": "Surface",
+      "score": 10,
+      "note": "High gloss, no scuffs"
+     },
+     {
+      "area": "Color",
+      "score": 9.1,
+      "note": "Slight toning at the edges"
+     },
+     {
+      "area": "Centering",
+      "score": 9.7,
+      "note": "Well centered"
+     }
+    ],
+    "exterior_only": true,
+    "slab": null
+   }
+  },
+  {
+   "comic": {
+    "id": "w",
+    "title": "Spawn",
+    "issue_number": "1",
+    "estimated_grade": 6.5,
+    "grade_type": "raw",
+    "current_market_value": 32
+   },
+   "report": {
+    "comic_id": "w",
+    "grade": 6.5,
+    "grade_low": 6,
+    "grade_high": 6.8,
+    "confidence": 0.74,
+    "defects": [
+     {
+      "area": "Corners",
+      "score": 7.1,
+      "note": "Rounded with small creases"
+     },
+     {
+      "area": "Spine",
+      "score": 7,
+      "note": "Multiple color-breaking stress lines"
+     },
+     {
+      "area": "Edges",
+      "score": 6.7,
+      "note": "Chipping and small tears"
+     },
+     {
+      "area": "Surface",
+      "score": 6,
+      "note": "Scuffing and visible creases"
+     },
+     {
+      "area": "Color",
+      "score": 6,
+      "note": "Noticeable fading and tanning"
+     },
+     {
+      "area": "Centering",
+      "score": 5.8,
+      "note": "Miswrapped, art off-panel"
+     }
+    ],
+    "exterior_only": true,
+    "slab": {
+     "raw_value": 32,
+     "slabbed_value": 40,
+     "grading_fee": 30,
+     "shipping": 22,
+     "net_uplift": -44,
+     "turnaround_days": 55,
+     "verdict": "skip"
+    }
+   }
+  },
+  {
+   "comic": {
+    "id": "v",
+    "title": "Batman Adventures",
+    "issue_number": "12",
+    "estimated_grade": 9,
+    "grade_type": "raw",
+    "current_market_value": 780
+   },
+   "report": {
+    "comic_id": "v",
+    "grade": 9,
+    "grade_low": 8.7,
+    "grade_high": 9.2,
+    "confidence": 0.82,
+    "defects": [
+     {
+      "area": "Corners",
+      "score": 9.1,
+      "note": "Light blunting, lower right"
+     },
+     {
+      "area": "Spine",
+      "score": 9.4,
+      "note": "Flat, no stress lines"
+     },
+     {
+      "area": "Edges",
+      "score": 8.6,
+      "note": "Minor wear along the top edge"
+     },
+     {
+      "area": "Surface",
+      "score": 9.2,
+      "note": "Faint finger bend, back cover"
+     },
+     {
+      "area": "Color",
+      "score": 9.3,
+      "note": "Slight toning at the edges"
+     },
+     {
+      "area": "Centering",
+      "score": 8.4,
+      "note": "Shifted slightly left"
+     }
+    ],
+    "exterior_only": true,
+    "slab": {
+     "raw_value": 780,
+     "slabbed_value": 1365,
+     "grading_fee": 150,
+     "shipping": 22,
+     "net_uplift": 413,
+     "turnaround_days": 20,
+     "verdict": "submit"
+    }
+   }
+  }
+ ]
+}

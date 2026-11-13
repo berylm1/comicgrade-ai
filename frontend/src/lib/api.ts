@@ -1,12 +1,17 @@
 /** Thin typed client for the ComicGrade AI FastAPI backend. */
-import { API_BASE_URL, DEMO_MODE } from './env';
+import { Platform } from 'react-native';
+
+import { API_BASE_URL, DEMO_MODE, SUPABASE_URL } from './env';
 import { demoApi } from './demo';
+import { getSupabase } from './supabase';
 import type {
   Comic,
   GradeReport,
+  GradeScanResult,
   PricePoint,
   RunGap,
   ScanMatch,
+  ScanPhotos,
   ValueLens,
   VisionResult,
 } from '../types';
@@ -18,7 +23,7 @@ async function handle<T>(res: Response): Promise<T> {
     let detail = res.statusText;
     try {
       const body = await res.json();
-      detail = body.detail ?? JSON.stringify(body);
+      detail = typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail ?? body);
     } catch {
       /* keep statusText */
     }
@@ -28,54 +33,111 @@ async function handle<T>(res: Response): Promise<T> {
   return (await res.json()) as T;
 }
 
+/** Bearer token of the signed-in Supabase user, if any. */
+async function authHeaders(): Promise<Record<string, string>> {
+  if (SUPABASE_URL.includes('your-project-ref')) return {};
+  try {
+    const { data } = await getSupabase().auth.getSession();
+    const token = data.session?.access_token;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
+  }
+}
+
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const headers = { ...(await authHeaders()), ...((init.headers as Record<string, string>) ?? {}) };
+  return fetch(`${BASE}${path}`, { ...init, headers }).then((r) => handle<T>(r));
+}
+
+const json = (body: unknown): RequestInit => ({
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(body),
+});
+
+/** Add a local photo to a multipart form (blob on web, { uri } file on native). */
+async function appendPhoto(form: FormData, field: string, uri: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    const blob = await (await fetch(uri)).blob();
+    form.append(field, blob, `${field}.jpg`);
+  } else {
+    // React Native FormData accepts the { uri, name, type } file shape.
+    form.append(field, { uri, name: `${field}.jpg`, type: 'image/jpeg' } as any);
+  }
+}
+
 const liveApi: typeof demoApi = {
   health: () => fetch(`${BASE}/health`).then(() => true).catch(() => false),
 
   analyzeCover: async (imageUri: string): Promise<VisionResult> => {
     const form = new FormData();
-    // React Native FormData accepts the { uri, name, type } file shape.
-    form.append('image', {
-      uri: imageUri,
-      name: 'cover.jpg',
-      type: 'image/jpeg',
-    } as any);
-    const res = await fetch(`${BASE}/vision/analyze`, {
-      method: 'POST',
-      body: form,
-    });
-    return handle<VisionResult>(res);
+    await appendPhoto(form, 'image', imageUri);
+    return request<VisionResult>('/vision/analyze', { method: 'POST', body: form });
   },
 
-  listComics: (userId?: string | null) =>
-    fetch(`${BASE}/comics${userId ? `?user_id=${userId}` : ''}`).then(handle<Comic[]>),
+  /** Identify and grade a book from the front, and optionally back and spine, photos. */
+  gradeScan: async (photos: ScanPhotos): Promise<GradeScanResult> => {
+    const form = new FormData();
+    await appendPhoto(form, 'front', photos.front);
+    if (photos.back) await appendPhoto(form, 'back', photos.back);
+    if (photos.spine) await appendPhoto(form, 'spine', photos.spine);
+    return request<GradeScanResult>('/vision/grade', { method: 'POST', body: form });
+  },
 
-  getComic: (id: string) => fetch(`${BASE}/comics/${id}`).then(handle<Comic>),
+  /**
+   * Save a scanned book with its grade report, then attach the front photo as
+   * the cover. One row per scan: the cover goes to POST /comics/{id}/cover
+   * instead of a second create.
+   */
+  saveScan: async (match: ScanMatch, frontUri?: string | null): Promise<Comic> => {
+    const comic = await request<Comic>('/comics', json({ ...match.comic, report: match.report }));
+    if (!frontUri) return comic;
+    try {
+      const form = new FormData();
+      await appendPhoto(form, 'image', frontUri);
+      return await request<Comic>(`/comics/${comic.id}/cover`, { method: 'POST', body: form });
+    } catch (err) {
+      console.warn('[ComicGrade] cover upload failed, keeping the book without it:', err);
+      return comic;
+    }
+  },
 
-  createComic: (comic: Partial<Comic>) =>
-    fetch(`${BASE}/comics`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(comic),
-    }).then(handle<Comic>),
+  // The backend reads the user from the auth token; the argument is kept for API parity.
+  listComics: (_userId?: string | null) => request<Comic[]>('/comics'),
 
-  deleteComic: (id: string) =>
-    fetch(`${BASE}/comics/${id}`, { method: 'DELETE' }).then((r) => handle<void>(r)),
+  getComic: (id: string) => request<Comic>(`/comics/${id}`),
 
-  listPrices: (id: string) =>
-    fetch(`${BASE}/comics/${id}/prices`).then(handle<PricePoint[]>),
+  createComic: (comic: Partial<Comic>) => request<Comic>('/comics', json(comic)),
 
-  refreshValue: (id: string) =>
-    fetch(`${BASE}/comics/${id}/refresh_value`, { method: 'POST' }).then(handle<PricePoint>),
+  deleteComic: (id: string) => request<void>(`/comics/${id}`, { method: 'DELETE' }),
+
+  listPrices: (id: string) => request<PricePoint[]>(`/comics/${id}/prices`),
+
+  refreshValue: (id: string) => request<PricePoint>(`/comics/${id}/refresh_value`, { method: 'POST' }),
 
   addPrice: (id: string, price: number, source = 'manual') =>
-    fetch(`${BASE}/comics/${id}/prices?price=${price}&source=${source}`, {
-      method: 'POST',
-    }).then(handle<PricePoint>),
+    request<PricePoint>(
+      `/comics/${id}/prices?price=${price}&source=${encodeURIComponent(source)}`,
+      { method: 'POST' },
+    ),
 
-  // Not served by the backend yet: the screens hide these sections when empty.
-  getGradeReport: async (_id: string): Promise<GradeReport | null> => null,
-  portfolioHistory: async (_lens: ValueLens = 'all'): Promise<number[]> => [],
-  listRunGaps: async (): Promise<RunGap[]> => [],
+  getGradeReport: async (id: string): Promise<GradeReport | null> => {
+    try {
+      return await request<GradeReport>(`/comics/${id}/grade_report`);
+    } catch (err: any) {
+      if (String(err?.message).startsWith('API 404')) return null;
+      throw err;
+    }
+  },
+
+  portfolioHistory: async (lens: ValueLens = 'all'): Promise<number[]> => {
+    const body = await request<{ points: { value: number }[] }>(`/portfolio/history?lens=${lens}`);
+    return body.points.map((p) => p.value);
+  },
+
+  listRunGaps: () => request<RunGap[]>('/runs/gaps'),
+
   peekScan: (): ScanMatch => {
     throw new Error('peekScan is demo-only: live scans use the camera');
   },

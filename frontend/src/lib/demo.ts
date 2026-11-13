@@ -6,9 +6,11 @@
 import type {
   Comic,
   GradeReport,
+  GradeScanResult,
   PricePoint,
   RunGap,
   ScanMatch,
+  ScanPhotos,
   ValueLens,
   VisionResult,
 } from '../types';
@@ -263,4 +265,30 @@ export const demoApi = {
     scanCursor += 1;
     return demoApi.createComic(match.comic);
   },
+
+  /** Same shape as POST /vision/grade, from the next sample book. */
+  gradeScan: (photos: ScanPhotos): Promise<GradeScanResult> => {
+    const { comic, report, match_confidence } = demoApi.peekScan();
+    const photos_used = 1 + (photos.back ? 1 : 0) + (photos.spine ? 1 : 0);
+    return wait(
+      {
+        identification: {
+          title: comic.title,
+          issue_number: comic.issue_number,
+          publisher: comic.publisher,
+          year: comic.year,
+          key_note: comic.key_note,
+          signature_detected: false,
+          notes: 'Demo scan',
+        },
+        report: { ...report, source: 'mock', photos_used },
+        match_confidence,
+        estimated_value: comic.current_market_value,
+        value_source: 'demo',
+      },
+      900,
+    );
+  },
+
+  saveScan: (match: ScanMatch, _frontUri?: string | null): Promise<Comic> => demoApi.commitScan(match),
 };

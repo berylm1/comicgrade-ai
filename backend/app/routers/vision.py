@@ -1,8 +1,12 @@
 # AI vision pipeline router.
 #
-# POST /vision/analyze receives an uploaded cover image, routes it through the
-# configured provider (mock by default, real OpenAI vision when VISION_PROVIDER=openai),
-# and returns a tentative identification + CGC-style grade.
+# POST /vision/analyze receives one cover image and returns a tentative
+# identification + grade. POST /vision/grade receives up to three photos
+# (front, back, spine) and returns the identification plus the full grade report.
+#
+# Providers (VISION_PROVIDER): "mock" (default, no keys), "openai", "claude".
+# Only Claude reads all three photos and scores each area; mock and openai
+# grade the front cover and the report is estimated from that grade.
 
 from __future__ import annotations
 
@@ -11,10 +15,14 @@ import random
 from typing import Final
 
 import httpx
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
+from ..auth import current_user_id
+from ..claude_grader import GradingError, Photo, grade_with_claude
 from ..config import settings
-from ..schemas import VisionResult
+from ..grading import estimate_report, slab_economics
+from ..pricing import MockProvider
+from ..schemas import GradeScanResult, ScanIdentification, VisionResult
 
 router = APIRouter(prefix="/vision", tags=["vision"])
 
@@ -112,20 +120,117 @@ async def _openai_analysis(image_bytes: bytes, content_type: str) -> VisionResul
     )
 
 
-@router.post("/analyze", response_model=VisionResult)
-async def analyze_cover(image: UploadFile = File(...)) -> VisionResult:
-    """Analyze an uploaded comic cover image and return identification + grade."""
+async def _read_image(image: UploadFile, label: str = "Image") -> tuple[bytes, str]:
     if not image.filename:
-        raise HTTPException(status_code=400, detail="No file received")
+        raise HTTPException(status_code=400, detail=f"{label}: no file received")
     ctype = image.content_type or ""
     if ctype and ctype not in _ALLOWED_TYPES:
-        raise HTTPException(status_code=415, detail=f"Unsupported image type: {ctype}")
+        raise HTTPException(status_code=415, detail=f"{label}: unsupported image type {ctype}")
     payload = await image.read()
     if not payload:
-        raise HTTPException(status_code=400, detail="Empty image")
+        raise HTTPException(status_code=400, detail=f"{label}: empty image")
     if len(payload) > _MAX_BYTES:
-        raise HTTPException(status_code=413, detail="Image exceeds 10 MB")
+        raise HTTPException(status_code=413, detail=f"{label}: image exceeds 10 MB")
+    return payload, ctype or "image/jpeg"
 
+
+@router.post("/analyze", response_model=VisionResult)
+async def analyze_cover(
+    image: UploadFile = File(...),
+    _user: str = Depends(current_user_id),
+) -> VisionResult:
+    """Analyze an uploaded comic cover image and return identification + grade."""
+    payload, ctype = await _read_image(image)
+    if settings.vision_provider == "claude":
+        result = await _claude_grade([Photo("front", payload, ctype)])
+        ident, report = result.identification, result.report
+        return VisionResult(
+            title=ident.title,
+            issue_number=ident.issue_number,
+            publisher=ident.publisher,
+            tentative_grade=report.grade,
+            signature_detected=ident.signature_detected,
+            notes=ident.notes,
+        )
     if settings.vision_provider == "openai":
-        return await _openai_analysis(payload, ctype or "image/jpeg")
+        return await _openai_analysis(payload, ctype)
     return _mock_analysis(payload)
+
+
+async def _claude_grade(photos: list[Photo]) -> GradeScanResult:
+    try:
+        graded = await grade_with_claude(photos)
+    except GradingError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc))
+    return GradeScanResult(
+        identification=graded.identification,
+        report=graded.report,
+        match_confidence=graded.match_confidence,
+    )
+
+
+def _from_single(result: VisionResult, source: str) -> GradeScanResult:
+    """Mock / OpenAI: they grade the front only, so the area breakdown is estimated."""
+    report = estimate_report(
+        {
+            "title": result.title,
+            "issue_number": result.issue_number,
+            "estimated_grade": result.tentative_grade,
+        }
+    ).model_copy(update={"source": source, "photos_used": 1})
+    return GradeScanResult(
+        identification=ScanIdentification(
+            title=result.title,
+            issue_number=result.issue_number,
+            publisher=result.publisher,
+            signature_detected=result.signature_detected,
+            notes=result.notes,
+        ),
+        report=report,
+        match_confidence=0.6 if source == "mock" else 0.75,
+    )
+
+
+@router.post("/grade", response_model=GradeScanResult)
+async def grade_scan(
+    front: UploadFile = File(..., description="Front cover photo"),
+    back: UploadFile | None = File(None, description="Back cover photo"),
+    spine: UploadFile | None = File(None, description="Spine photo"),
+    _user: str = Depends(current_user_id),
+) -> GradeScanResult:
+    """Identify and grade a book from up to three photos.
+
+    Returns the identification, the full grade report and a raw value estimate
+    with the slab-or-not maths computed from it.
+    """
+    photos: list[Photo] = []
+    for role, upload in (("front", front), ("back", back), ("spine", spine)):
+        if upload is None:
+            continue
+        data, ctype = await _read_image(upload, role.capitalize())
+        photos.append(Photo(role, data, ctype))
+
+    if settings.vision_provider == "claude":
+        result = await _claude_grade(photos)
+    elif settings.vision_provider == "openai":
+        result = _from_single(
+            await _openai_analysis(photos[0].data, photos[0].media_type),
+            f"openai:{settings.openai_vision_model}",
+        )
+    else:
+        result = _from_single(_mock_analysis(photos[0].data), "mock")
+
+    # Raw value estimate for the identified book at the graded condition.
+    ident = result.identification
+    try:
+        quote = await MockProvider().quote(
+            title=ident.title,
+            issue_number=ident.issue_number,
+            grade=result.report.grade,
+            slab_cert_number=None,
+        )
+        result.estimated_value, result.value_source = quote.value, quote.source
+        result.report.slab = slab_economics(result.report.grade, "raw", quote.value)
+    except Exception:
+        pass  # a value is a bonus; the grade still stands without it
+    return result

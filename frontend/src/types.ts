@@ -65,6 +65,10 @@ export interface GradeReport {
   defects: DefectScore[];
   /** Photos cannot see restoration or interior pages. */
   exterior_only: boolean;
+  /** Which pipeline produced it: 'claude:<model>', 'openai:<model>', 'mock' or 'estimate'. */
+  source?: string;
+  /** How many photos (front, back, spine) the grade was based on. */
+  photos_used?: number;
   /** Present for raw books only. */
   slab?: {
     raw_value: number;
@@ -94,4 +98,31 @@ export interface ScanMatch {
   comic: Omit<Comic, 'id'>;
   report: Omit<GradeReport, 'comic_id'>;
   match_confidence: number;
+}
+
+/** The photos taken during a live scan (local file or blob URIs). */
+export interface ScanPhotos {
+  front: string;
+  back?: string | null;
+  spine?: string | null;
+}
+
+/** Who the scanned book is, from POST /vision/grade. */
+export interface ScanIdentification {
+  title: string;
+  issue_number: string;
+  publisher: string;
+  year?: number | null;
+  key_note?: string | null;
+  signature_detected: boolean;
+  notes: string;
+}
+
+/** Response of POST /vision/grade: identification plus the full grade report. */
+export interface GradeScanResult {
+  identification: ScanIdentification;
+  report: Omit<GradeReport, 'comic_id'>;
+  match_confidence: number;
+  estimated_value?: number | null;
+  value_source?: string | null;
 }

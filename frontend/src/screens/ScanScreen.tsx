@@ -232,5 +232,5 @@ function DemoScanner({ navigation }: Props) {
 }
 
 export default function ScanScreen(props: Props) {
-  return DEMO_MODE ? <DemoScanner {...props} /> : <LiveScanner />;
+  return DEMO_MODE ? <DemoScanner {...props} /> : <LiveScanner {...props} />;
 }
