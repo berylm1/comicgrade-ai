@@ -11,11 +11,11 @@ import { GradeBadge, LoadingDots } from '../components/ui';
 type Phase = 'idle' | 'analyzing' | 'saving' | 'done' | 'error';
 
 /**
- * Camera capture screen with framed overlay guides for covers and spines.
+ * Live camera capture (used when demo mode is off) with framed overlay guides for covers and spines.
  * Flow: capture -> analyze (vision pipeline) -> save locally -> upload to
  * Supabase Storage -> create the comic row via the backend.
  */
-export default function CameraScreen() {
+export default function LiveScanner() {
   const [permission, requestPermission] = useCameraPermissions();
   const [libraryPermission] = MediaLibrary.usePermissions();
   const [facing, setFacing] = useState<CameraType>('back');
@@ -23,6 +23,7 @@ export default function CameraScreen() {
   const [hit, setHit] = useState<VisionResult | null>(null);
   const [busy, setBusy] = useState(false);
   const lastUri = useRef<string | null>(null);
+  const cameraRef = useRef<CameraView>(null);
 
   const onCapture = useCallback(async () => {
     if (!cameraRef.current || busy) return;
@@ -38,6 +39,7 @@ export default function CameraScreen() {
         base64: true,
         exif: false,
       });
+      if (!photo) throw new Error('The camera did not return a photo');
       lastUri.current = photo.uri;
 
       // 2. Send to the AI vision pipeline.
@@ -61,7 +63,7 @@ export default function CameraScreen() {
       if (comic) {
         setHit(result);
       } else {
-        Alert.alert('Saved analysis', 'Could not reach the backend — showing local result only.');
+        Alert.alert('Saved analysis', 'Could not reach the backend. Showing the local result only.');
       }
     } catch (err: any) {
       setPhase('error');
@@ -70,8 +72,6 @@ export default function CameraScreen() {
       setBusy(false);
     }
   }, [busy, libraryPermission]);
-
-  const cameraRef = useRef<CameraView>(null);
 
   if (!permission?.granted) {
     return (
@@ -104,7 +104,7 @@ export default function CameraScreen() {
             <View className="absolute -right-1 -bottom-1 w-8 h-8 border-r-4 border-b-4 border-pop-magenta rounded-br-3xl" />
           </View>
           <Text className="mt-3 text-neutral-200 text-center px-8">
-            Center the cover in the frame — or rotate for a spine scan (vertical bar)
+            Center the cover in the frame, or rotate for a spine scan (vertical bar)
           </Text>
           <View className="absolute right-4 top-1/4 h-1/2 w-10 rounded-lg border-2 border-dashed border-pop-cyan/80" />
         </View>

@@ -1,6 +1,15 @@
 /** Thin typed client for the ComicGrade AI FastAPI backend. */
-import { API_BASE_URL } from './env';
-import type { Comic, PricePoint, VisionResult } from '../types';
+import { API_BASE_URL, DEMO_MODE } from './env';
+import { demoApi } from './demo';
+import type {
+  Comic,
+  GradeReport,
+  PricePoint,
+  RunGap,
+  ScanMatch,
+  ValueLens,
+  VisionResult,
+} from '../types';
 
 const BASE = API_BASE_URL.replace(/\/$/, '');
 
@@ -19,7 +28,7 @@ async function handle<T>(res: Response): Promise<T> {
   return (await res.json()) as T;
 }
 
-export const api = {
+const liveApi: typeof demoApi = {
   health: () => fetch(`${BASE}/health`).then(() => true).catch(() => false),
 
   analyzeCover: async (imageUri: string): Promise<VisionResult> => {
@@ -62,4 +71,17 @@ export const api = {
     fetch(`${BASE}/comics/${id}/prices?price=${price}&source=${source}`, {
       method: 'POST',
     }).then(handle<PricePoint>),
+
+  // Not served by the backend yet: the screens hide these sections when empty.
+  getGradeReport: async (_id: string): Promise<GradeReport | null> => null,
+  portfolioHistory: async (_lens: ValueLens = 'all'): Promise<number[]> => [],
+  listRunGaps: async (): Promise<RunGap[]> => [],
+  peekScan: (): ScanMatch => {
+    throw new Error('peekScan is demo-only: live scans use the camera');
+  },
+  commitScan: async (_match: ScanMatch): Promise<Comic> => {
+    throw new Error('commitScan is demo-only: live scans use the camera');
+  },
 };
+
+export const api = DEMO_MODE ? demoApi : liveApi;

@@ -25,7 +25,7 @@ module.exports = {
         },
       },
       fontFamily: {
-        slab: ['System'], // swap in a comic slab font asset later
+        display: ['Anton_400Regular'], // loaded in App.tsx
       },
     },
   },

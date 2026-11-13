@@ -9,16 +9,18 @@ A mobile-first **comic book valuation & grading** prototype.
 ```
 comicgrade-ai/
 ├── frontend/                  # Expo React Native app
-│   ├── App.tsx                # Bottom-tab nav: Scan / Collection / Dashboard
+│   ├── App.tsx                # Tabs: Vault / Collection / Scan / Insights (phone frame on desktop web)
 │   ├── tailwind.config.js     # Comic-pop dark palette
 │   └── src/
-│       ├── lib/               # Supabase client, FastAPI client, env
-│       ├── components/        # Grade badges, stat chips, loading states
+│       ├── lib/               # FastAPI client, demo backend (demo.ts), grade report builder, Supabase, env
+│       ├── components/        # ui.tsx (badges, pills, toasts) and visuals.tsx (covers, charts, grade dial)
 │       └── screens/
-│           ├── CameraScreen.tsx          # Framed cover/spine capture → vision → upload
-│           ├── CollectionScreen.tsx      # Scanned collection grouped by publisher
-│           ├── DashboardScreen.tsx       # Valuation dashboard (total value, avg grade, top holdings)
-│           └── ComicDetailScreen.tsx     # Detail + price history + manual price logging
+│           ├── DashboardScreen.tsx       # Vault: value over time, raw vs slabbed lens, top holdings
+│           ├── CollectionScreen.tsx      # Searchable, filterable collection grouped by publisher
+│           ├── ScanScreen.tsx            # Guided front/back/spine scan (demo walkthrough or live camera)
+│           ├── LiveScanner.tsx           # Real camera capture → vision → upload (demo mode off)
+│           ├── InsightsScreen.tsx        # Slab pre-screen queue, run gaps, insurance export
+│           └── ComicDetailScreen.tsx     # Explainable grade, value chart, slab decision, price logging
 ├── backend/                   # FastAPI server
 │   └── app/
 │       ├── main.py            # App entry (CORS, routers, /health)
@@ -32,6 +34,27 @@ comicgrade-ai/
     ├── 001_initial_schema.sql
     └── 002_storage_bucket.sql
 ```
+
+## Quick demo (no backend needed)
+
+The frontend ships with a **demo mode** that serves the whole app from built-in sample data, so it can be shown to prospects with no Supabase project, API server or camera.
+
+```bash
+cd frontend
+npm install
+npx expo start --web
+```
+
+Open http://localhost:8081. On a desktop browser the app is presented inside a phone frame. Demo mode is on whenever `EXPO_PUBLIC_API_BASE_URL` is unset (`EXPO_PUBLIC_DEMO_MODE=1` forces it on, `0` forces it off).
+
+What the demo shows:
+
+1. **Vault**: collection value over time, a raw vs slabbed lens, and a pre-screen pick.
+2. **Scan**: a guided front, back and spine capture that ends in an identification, a grade range and a value.
+3. **Comic detail**: a per-area breakdown of why the book got its grade, an exterior-only disclaimer, a value chart and a "should you slab it?" calculation net of fees.
+4. **Insights**: the submission queue ranked by net uplift, run gaps with prices, and the insurance export.
+
+Titles in the sample set are real books. Grades, dollar values, run gaps and grade reports are **illustrative demo data**, and covers are generated placeholders. Grade reports, value history and run gaps are not served by the backend yet, so those sections hide themselves when demo mode is off.
 
 ## 1. Prerequisites
 

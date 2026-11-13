@@ -7,7 +7,9 @@
     "userInterfaceStyle": "dark",
     "scheme": "comicgrade",
     "backgroundColor": "#0a0a12",
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.berylm1.comicgradeai",
@@ -18,7 +20,10 @@
     },
     "android": {
       "package": "com.berylm1.comicgradeai",
-      "permissions": ["CAMERA", "WRITE_EXTERNAL_STORAGE"]
+      "permissions": [
+        "CAMERA",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "plugins": [
       [
@@ -33,7 +38,9 @@
           "savePhotosPermission": "Allow ComicGrade AI to save scanned covers.",
           "isAccessMediaLocationEnabled": false
         }
-      ]
+      ],
+      "expo-font",
+      "expo-asset"
     ]
   }
 }
