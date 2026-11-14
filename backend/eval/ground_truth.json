@@ -1,0 +1,23 @@
+{
+  "_about": "Weekend vision test set (Nov 14-15, 2026). Series and issue read off each cover; years are cover years. Photos are not committed (repo is public): pass the folder with --photos. Files are matched by their NN- prefix, any image extension.",
+  "photos": [
+    {"id": "01", "file": "01-action-comics-1000-standing.jpg", "series": ["Action Comics"], "issue": "1000", "year": 2018, "format": "single_issue", "note": "Variant A; same issue as 03"},
+    {"id": "02", "file": "02-action-comics-800.jpg", "series": ["Action Comics"], "issue": "800", "year": 2003, "format": "single_issue", "note": "Same title, different year; front barcode box"},
+    {"id": "03", "file": "03-action-comics-1000-crouching.jpg", "series": ["Action Comics"], "issue": "1000", "year": 2018, "format": "single_issue", "note": "Variant B; same issue as 01, different art"},
+    {"id": "04", "file": "04-avengers-9.jpg", "series": ["Avengers"], "issue": "9", "year": 1964, "format": "single_issue", "note": "Worn physical copy"},
+    {"id": "05", "file": "05-detective-comics-566.jpg", "series": ["Detective Comics"], "issue": "566", "year": 1986, "format": "single_issue"},
+    {"id": "06", "file": "06-detective-comics-1000-deluxe.jpg", "series": ["Detective Comics", "Batman: Detective Comics"], "issue": "1000", "year": 2019, "format": "collected_edition", "note": "DELUXE EDITION: a collected edition, not the single issue"},
+    {"id": "07", "file": "07-fantastic-four-126.jpg", "series": ["Fantastic Four"], "issue": "126", "year": 1972, "format": "single_issue", "note": "Physical copy"},
+    {"id": "08", "file": "08-amazing-spider-man-annual-2.jpg", "series": ["Amazing Spider-Man"], "issue": "2", "year": 1965, "format": "annual", "note": "Annual, not the monthly series"},
+    {"id": "09", "file": "09-ultimate-spider-man-1-variant.jpg", "series": ["Ultimate Spider-Man"], "issue": "1", "year": 2000, "format": "single_issue", "variant_named_on_cover": true, "year_disputed": "The cover's trade dress (large U logo, VARIANT EDITION box) and costume match the 2024 Ultimate Spider-Man series, not the 2000 one. Confirm before using the year as a GCD gate. Year is not scored."},
+    {"id": "10", "file": "10-fantastic-four-52.jpg", "series": ["Fantastic Four"], "issue": "52", "year": 1966, "format": "single_issue", "note": "First Black Panther"},
+    {"id": "11", "file": "11-new-avengers-1.jpg", "series": ["New Avengers"], "issue": "1", "year": 2005, "format": "single_issue", "note": "Series-confusion trap vs Avengers #9"}
+  ],
+  "traps": {
+    "same_issue_two_arts": ["01", "03"],
+    "new_vs_old_avengers": ["11", "04"],
+    "deluxe_not_single": ["06"],
+    "annual_not_monthly": ["08"]
+  },
+  "targets": {"top1": 0.8, "top3": 0.95, "max_cost_per_scan_usd": 0.10}
+}

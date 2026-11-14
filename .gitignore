@@ -21,3 +21,5 @@ venv/
 *.log
 # Local Claude Code launch config
 .claude/
+# Cover photos are copyrighted and the repo is public: keep them out of git.
+backend/eval/photos/
