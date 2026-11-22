@@ -2,7 +2,7 @@
 
 The code side is done: sign-in, scan confirmation, sample-price labels and automatic checks. What's left needs your accounts, your API key or your phone. Work through these in order; each one ends with a check that it worked.
 
-Status (Nov 22, 2026): step 1 is done except migration 006 (nightly snapshots): migrations 001 to 005 run, the owner account created and the demo collection loaded (72 books). The backend was checked end to end against it. Next: step 2.
+Status (Nov 22, 2026): step 1 is done: migrations 001 to 006 run (nightly snapshots verified), the owner account created and the demo collection loaded (72 books). The backend was checked end to end against it. Next: step 2.
 
 ## 1. Supabase project (about 15 minutes)
 
