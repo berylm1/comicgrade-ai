@@ -45,7 +45,8 @@ No Anthropic key yet? You can still deploy: set `VISION_PROVIDER` to `mock` in s
 1. Open **comicgrade-api** in Render and wait until it says **Live** (a few minutes).
 2. Copy its address at the top of the page, for example `https://comicgrade-api.onrender.com`. Yours may have extra letters on the end.
 3. Open that address followed by `/health` in a browser, e.g. `https://comicgrade-api.onrender.com/health`. You should see `{"status":"ok"}`.
-4. Using mock scans for now? In **Environment**, change `VISION_PROVIDER` to `mock` and save.
+4. Then open the address followed by `/health/config`. Every check should read `ok` or `on`. If `supabase` mentions a public key, the secret key box holds the publishable key: fix it in **Environment**.
+5. Using mock scans for now? In **Environment**, change `VISION_PROVIDER` to `mock` and save.
 
 > **Free plan note:** Render's free backend goes to sleep after about 15 minutes without use. The first request after that takes up to a minute while it wakes. If the app shows an error right after opening, wait a moment and pull down to refresh. A paid plan keeps it awake.
 
@@ -88,8 +89,11 @@ Every push to the chosen branch redeploys both services automatically. Changing 
 
 ## If something goes wrong
 
+First, open the backend address followed by `/health/config` (e.g. `https://comicgrade-api.onrender.com/health/config`). It checks the backend's settings and says in plain words what's wrong, without showing any secret values.
+
 | What you see | Likely cause and fix |
 |---|---|
+| The app is empty after signing in, and saving a book fails | `SUPABASE_SERVICE_ROLE_KEY` holds the **publishable** key. Replace it with the **secret** key (`sb_secret_...`). `/health/config` reports this |
 | App says "API 401" or keeps returning to sign-in | Sign out and back in. If it continues, check `SUPABASE_URL` on the backend matches the app's `EXPO_PUBLIC_SUPABASE_URL` |
 | App says "API 503: Server is not connected to Supabase" | `SUPABASE_URL` or `SUPABASE_SERVICE_ROLE_KEY` missing or wrong on comicgrade-api |
 | Network error or "Failed to fetch" | Backend asleep (wait a minute) or `EXPO_PUBLIC_API_BASE_URL` wrong (redo step 3) |

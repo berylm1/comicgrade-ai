@@ -412,3 +412,62 @@ def test_batch_grade_reports_chunk_large_collections(client, sb, monkeypatch):
 
 def test_grade_reports_path_is_not_read_as_a_comic_id(client):
     assert client.get("/comics/grade_reports").status_code == 200
+
+
+# ------------------------------------------------------------ key checks
+
+
+def _jwt_with_role(role):
+    return jwt.encode({"role": role, "iss": "supabase"}, "legacy-secret-at-least-32-bytes-long!", algorithm="HS256")
+
+
+def test_public_keys_are_recognised():
+    from app.supabase_client import public_key_kind
+
+    assert public_key_kind("sb_publishable_abc123") == "publishable"
+    assert public_key_kind(_jwt_with_role("anon")) == "legacy anon"
+    assert public_key_kind(_jwt_with_role("service_role")) is None
+    assert public_key_kind("sb_secret_abc123") is None
+
+
+def test_public_key_is_refused_with_a_clear_503(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app import supabase_client
+    from app.main import app
+
+    monkeypatch.setattr(settings, "supabase_url", "https://x.supabase.co")
+    monkeypatch.setattr(settings, "supabase_service_role_key", "sb_publishable_abc123")
+    monkeypatch.setattr(settings, "supabase_anon_key", "sb_publishable_abc123")
+    supabase_client.get_supabase.cache_clear()
+    try:
+        r = TestClient(app).get("/comics")
+        assert r.status_code == 503 and "public key (publishable)" in r.json()["detail"]
+        cfg = TestClient(app).get("/health/config").json()
+        assert cfg["status"] == "misconfigured" and "publishable" in cfg["checks"]["supabase"]
+    finally:
+        supabase_client.get_supabase.cache_clear()
+
+
+def test_no_fallback_to_the_public_key(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app import supabase_client
+    from app.main import app
+
+    monkeypatch.setattr(settings, "supabase_url", "https://x.supabase.co")
+    monkeypatch.setattr(settings, "supabase_service_role_key", "")
+    monkeypatch.setattr(settings, "supabase_anon_key", "sb_publishable_abc123")
+    supabase_client.get_supabase.cache_clear()
+    try:
+        assert TestClient(app).get("/comics").status_code == 503
+    finally:
+        supabase_client.get_supabase.cache_clear()
+
+
+def test_health_config_reports_vision_setup(client, monkeypatch):
+    monkeypatch.setattr(settings, "vision_provider", "claude")
+    monkeypatch.setattr(settings, "anthropic_api_key", None)
+    checks = client.get("/health/config").json()["checks"]
+    assert checks["vision"] == "claude, but ANTHROPIC_API_KEY is missing"
+    assert "sb_" not in str(checks)  # never echoes keys
