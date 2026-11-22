@@ -139,6 +139,10 @@ const liveApi: typeof demoApi = {
     }
   },
 
+  /** Every book's grade report in one request (optionally one grade type, e.g. 'raw'). */
+  listGradeReports: (gradeType?: string) =>
+    request<GradeReport[]>(`/comics/grade_reports${gradeType ? `?grade_type=${encodeURIComponent(gradeType)}` : ''}`),
+
   portfolioHistory: async (lens: ValueLens = 'all'): Promise<number[]> => {
     const body = await request<{ points: { value: number }[] }>(`/portfolio/history?lens=${lens}`);
     return body.points.map((p) => p.value);

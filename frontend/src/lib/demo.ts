@@ -235,6 +235,10 @@ export const demoApi = {
   /** Explainable grade + slab economics. */
   getGradeReport: (id: string): Promise<GradeReport | null> => wait(buildReport(find(id))),
 
+  /** Every book's grade report in one call (optionally one grade type). */
+  listGradeReports: (gradeType?: string): Promise<GradeReport[]> =>
+    wait(comics.filter((c) => !gradeType || (c.grade_type ?? 'raw') === gradeType).map(buildReport)),
+
   /** Monthly collection value for the dashboard chart. */
   portfolioHistory: (lens: ValueLens = 'all'): Promise<number[]> => {
     const series = Array.from({ length: MONTHS }, () => 0);

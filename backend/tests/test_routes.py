@@ -372,3 +372,43 @@ def test_missing_supabase_config_is_503(monkeypatch):
         assert TestClient(app).get("/comics").status_code == 503
     finally:
         supabase_client.get_supabase.cache_clear()
+
+
+# ------------------------------------------------------------ batch reports
+
+
+def test_batch_grade_reports_match_single_route(client, sb):
+    stored = add_comic(sb, title="Uncanny X-Men", issue_number="266", estimated_grade=9.4, current_market_value=240)
+    sb.table("grade_reports").insert({
+        "comic_id": stored["id"], "grade": 9.4, "grade_low": 9.2, "grade_high": 9.6, "confidence": 0.8,
+        "defects": [{"area": "Corners", "score": 9.4, "note": "Sharp"}], "source": "claude:claude-opus-5-5",
+    }).execute()
+    add_comic(sb, title="Amazing Spider-Man", issue_number="300", estimated_grade=9.2, current_market_value=610)
+    add_comic(sb, title="Invincible", grade_type="cgc", current_market_value=1400)
+    add_comic(sb, USER_B, title="Spawn")  # someone else's
+
+    batch = client.get("/comics/grade_reports").json()
+    assert len(batch) == 3
+    for report in batch:
+        assert report == client.get(f"/comics/{report['comic_id']}/grade_report").json()
+    assert {r["source"] for r in batch} == {"claude:claude-opus-5-5", "estimate"}
+
+    raw_only = client.get("/comics/grade_reports", params={"grade_type": "raw"}).json()
+    assert len(raw_only) == 2 and all(r["slab"] for r in raw_only)
+
+
+def test_batch_grade_reports_chunk_large_collections(client, sb, monkeypatch):
+    from app.routers import comics as comics_router
+
+    monkeypatch.setattr(comics_router, "ID_CHUNK", 2)
+    rows = [add_comic(sb, title=f"Book {i}", issue_number=str(i)) for i in range(5)]
+    for row in rows:
+        sb.table("grade_reports").insert({
+            "comic_id": row["id"], "grade": 8.0, "grade_low": 7.5, "grade_high": 8.5, "confidence": 0.7, "source": "mock",
+        }).execute()
+    batch = client.get("/comics/grade_reports").json()
+    assert len(batch) == 5 and all(r["source"] == "mock" for r in batch)
+
+
+def test_grade_reports_path_is_not_read_as_a_comic_id(client):
+    assert client.get("/comics/grade_reports").status_code == 200

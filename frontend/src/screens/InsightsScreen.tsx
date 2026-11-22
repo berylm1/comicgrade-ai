@@ -23,10 +23,17 @@ export default function InsightsScreen({ navigation }: Props) {
     useCallback(() => {
       let live = true;
       (async () => {
-        const [list, gaps] = await Promise.all([api.listComics(), api.listRunGaps()]);
-        const reports = await Promise.all(
-          list.filter((c) => isRaw(c.grade_type)).map(async (comic) => ({ comic, report: await api.getGradeReport(comic.id) })),
-        );
+        // One request for all raw books' reports, instead of one per book.
+        const [list, gaps, rawReports] = await Promise.all([
+          api.listComics(),
+          api.listRunGaps(),
+          api.listGradeReports('raw'),
+        ]);
+        const byId = new Map(list.map((c) => [c.id, c]));
+        const reports = rawReports.flatMap((report) => {
+          const comic = byId.get(report.comic_id);
+          return comic && isRaw(comic.grade_type) ? [{ comic, report }] : [];
+        });
         if (!live) return;
         setComics(list);
         setRuns(gaps);

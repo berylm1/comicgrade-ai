@@ -61,7 +61,8 @@ comicgrade-ai/
     ├── 002_storage_bucket.sql
     ├── 003_grade_type.sql
     ├── 004_grading_portfolio_runs.sql
-    └── 005_comic_format.sql
+    ├── 005_comic_format.sql
+    └── 006_nightly_snapshots.sql
 ```
 
 ## Quick demo (no backend needed)
@@ -103,6 +104,7 @@ Every push runs the backend tests and the frontend type-check on GitHub (`.githu
    3. `supabase/migrations/003_grade_type.sql` (raw vs slabbed separation)
    4. `supabase/migrations/004_grading_portfolio_runs.sql` (grade reports, value snapshots, series catalog)
    5. `supabase/migrations/005_comic_format.sql` (annuals and collected editions are separate from single issues)
+   6. `supabase/migrations/006_nightly_snapshots.sql` (records every collection's value each night inside Supabase, using pg_cron)
 
    (Or use the Supabase CLI: `supabase link --project-ref <ref> && supabase db push`.)
 3. Create an account in the app (email + password), confirm the email, and copy its user id from **Authentication → Users**. Supabase's built-in email sender only mails members of your Supabase team; see [docs/go-live.md](docs/go-live.md) for custom email.
@@ -132,6 +134,7 @@ uvicorn app.main:app --reload --port 8000
 **Collection.**
 - `POST /comics`: create a comic. Send an `id` to update that book instead of adding a second one, and an optional `report` (from `/vision/grade`) to store its grade report.
 - `GET /pricing/estimate?title=&issue_number=&grade=`: value for a book not saved yet (used when the user corrects a scan).
+- `GET /comics/grade_reports?grade_type=raw`: every book's grade report in one request (used by Insights).
 - `GET /comics/{id}/grade_report`: the stored scan report, or one estimated from the stored grade. Slab economics are always computed from the book's current value.
 - `POST /comics/{id}/cover`: upload the cover photo to Storage and attach it.
 - `POST /comics/{id}/prices?price=249.99&source=ebay`: logs a price point and updates `current_market_value`.
@@ -139,7 +142,8 @@ uvicorn app.main:app --reload --port 8000
 
 **Value history and runs.**
 - `GET /portfolio/history?lens=all|raw|certified&months=10`: month-end collection value. Past months use that month's nightly snapshot when there is one, else they are rebuilt from `price_history`; the current month is the live total.
-- `POST /portfolio/snapshot`: record today's totals for the signed-in user. `POST /portfolio/snapshot/all` snapshots every user; it needs `CRON_SECRET` set and sent as the `X-Cron-Secret` header, so a nightly cron job or Supabase scheduled function can call it.
+- Nightly snapshots run inside Supabase once migration 006 is applied (no external cron job needed).
+- `POST /portfolio/snapshot`: record today's totals for the signed-in user. `POST /portfolio/snapshot/all` snapshots every user, for hosts that prefer an external scheduler; it needs `CRON_SECRET` set and sent as the `X-Cron-Secret` header.
 - `GET /runs/gaps`: runs the user has started but not finished (from the `series` catalog), with the best missing issue to buy next.
 
 **Load the demo collection** into your project (needs `SUPABASE_SERVICE_ROLE_KEY`):

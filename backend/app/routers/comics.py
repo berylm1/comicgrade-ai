@@ -105,6 +105,33 @@ def _store_report(sb, comic_id: str, report: GradeReportIn) -> None:
     ).execute()
 
 
+def report_for(comic: dict, stored: Optional[dict]) -> GradeReportOut:
+    """A comic's grade report: the stored scan report, or an estimate from its grade.
+
+    Slab economics are always computed from the comic's current value, so they
+    move with the market instead of freezing at scan time.
+    """
+    if not stored:
+        return GradeReportOut(comic_id=comic["id"], **estimate_report(comic).model_dump())
+    grade = float(stored["grade"])
+    return GradeReportOut(
+        comic_id=comic["id"],
+        grade=grade,
+        grade_low=float(stored["grade_low"]),
+        grade_high=float(stored["grade_high"]),
+        confidence=float(stored["confidence"]),
+        defects=stored.get("defects") or [],
+        exterior_only=bool(stored.get("exterior_only", True)),
+        source=stored.get("source") or "estimate",
+        photos_used=int(stored.get("photos_used") or 0),
+        slab=slab_economics(grade, comic.get("grade_type"), comic.get("current_market_value")),
+    )
+
+
+# Ids per `in.(...)` filter, to keep request URLs well under server limits.
+ID_CHUNK = 150
+
+
 # ------------------------------------------------------------------ comics
 
 
@@ -173,6 +200,30 @@ def create_comic(
     return to_out(saved, change_pcts(sb, [saved["id"]]).get(saved["id"]))
 
 
+@router.get("/grade_reports", response_model=list[GradeReportOut])
+def list_grade_reports(
+    grade_type: Optional[str] = Query(None, description="Only books of this grade type, e.g. raw"),
+    user_id: str = Depends(current_user_id),
+    sb=Depends(get_supabase),
+):
+    """Grade reports for all of the user's books in one request (the Insights screen).
+
+    Declared before /{comic_id} so "grade_reports" is not read as a comic id.
+    """
+    query = sb.table("comics").select("*").eq("user_id", user_id)
+    if grade_type:
+        query = query.eq("grade_type", grade_type)
+    comics = query.execute().data or []
+    ids = [c["id"] for c in comics]
+    stored: dict[str, dict] = {}
+    for i in range(0, len(ids), ID_CHUNK):
+        for row in (
+            sb.table("grade_reports").select("*").in_("comic_id", ids[i : i + ID_CHUNK]).execute().data or []
+        ):
+            stored[row["comic_id"]] = row
+    return [report_for(c, stored.get(c["id"])) for c in comics]
+
+
 @router.get("/{comic_id}", response_model=ComicOut)
 def get_comic(comic_id: str, user_id: str = Depends(current_user_id), sb=Depends(get_supabase)):
     row = owned_comic(sb, comic_id, user_id)
@@ -202,22 +253,7 @@ def get_grade_report(
     stored = _data(
         sb.table("grade_reports").select("*").eq("comic_id", comic_id).maybe_single().execute()
     )
-    if not stored:
-        return GradeReportOut(comic_id=comic_id, **estimate_report(comic).model_dump())
-
-    grade = float(stored["grade"])
-    return GradeReportOut(
-        comic_id=comic_id,
-        grade=grade,
-        grade_low=float(stored["grade_low"]),
-        grade_high=float(stored["grade_high"]),
-        confidence=float(stored["confidence"]),
-        defects=stored.get("defects") or [],
-        exterior_only=bool(stored.get("exterior_only", True)),
-        source=stored.get("source") or "estimate",
-        photos_used=int(stored.get("photos_used") or 0),
-        slab=slab_economics(grade, comic.get("grade_type"), comic.get("current_market_value")),
-    )
+    return report_for(comic, stored)
 
 
 # ----------------------------------------------------------- price history

@@ -2,12 +2,12 @@
 
 The code side is done: sign-in, scan confirmation, sample-price labels and automatic checks. What's left needs your accounts, your API key or your phone. Work through these in order; each one ends with a check that it worked.
 
-Status (Nov 22, 2026): step 1 is done: migrations 001 to 005 run, the owner account created and the demo collection loaded (72 books). The backend was checked end to end against it. Next: step 2.
+Status (Nov 22, 2026): step 1 is done except migration 006 (nightly snapshots): migrations 001 to 005 run, the owner account created and the demo collection loaded (72 books). The backend was checked end to end against it. Next: step 2.
 
 ## 1. Supabase project (about 15 minutes)
 
 1. Create a free project at supabase.com. From **Project Settings → API**, copy the **Project URL**, **anon key** and **service_role key**.
-2. In the **SQL editor**, run the migrations in order: `supabase/migrations/001` through `005`.
+2. In the **SQL editor**, run the migrations in order: `supabase/migrations/001` through `006`.
 3. **Sign-in.** The app signs in with **email + password**, which works with Supabase's default email settings. Two things to know about those defaults:
    - Supabase's built-in email sender only delivers to members of your Supabase team, a few emails an hour, and its templates can't be edited. That's fine for your own testing. For testers or prospects, set up your own email provider under **Authentication → Emails → SMTP Settings** (Resend, Postmark and others have free tiers).
    - New accounts must confirm their email. The confirmation link opens your **Site URL** (Authentication → URL Configuration), which defaults to `http://localhost:3000`, so the page may not load. The account is confirmed anyway; go back to the app and sign in.
@@ -36,7 +36,7 @@ Settings the backend needs, for any host (Render asks for them from the blueprin
 
 Leave `DEV_USER_ID` unset in production. The backend verifies each user's token against the project's public signing keys (`/auth/v1/.well-known/jwks.json`), so it needs no extra secret. A signed-out user's token keeps working until it expires, about an hour.
 
-Nightly value snapshots: schedule a daily `POST <backend>/portfolio/snapshot/all` with the header `X-Cron-Secret: <CRON_SECRET>` (a Render cron job or a Supabase scheduled function).
+Nightly value snapshots: run `supabase/migrations/006_nightly_snapshots.sql` in the SQL editor. It schedules a job inside Supabase (pg_cron) that records every collection's value at 06:17 UTC each night, so no external cron job is needed. (`POST <backend>/portfolio/snapshot/all` with `X-Cron-Secret` still works for other setups.)
 
 **Why not Expo Go?** The app is on Expo SDK 52; the App Store's Expo Go only opens recent SDKs (58 now). The hosted web page works on the phone today. An SDK upgrade comes before an App Store build.
 

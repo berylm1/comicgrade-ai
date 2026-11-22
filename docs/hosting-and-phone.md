@@ -97,8 +97,11 @@ Every push to the chosen branch redeploys both services automatically. Changing 
 | Camera never asks for permission | The page must be opened over `https://`. Check the phone's browser settings allow camera for the site |
 | No confirmation email arrives | Supabase's built-in sender only mails members of your Supabase team, a few per hour. See [go-live.md](go-live.md) for custom email |
 
+## Nightly value history
+
+Run `supabase/migrations/006_nightly_snapshots.sql` once in Supabase's SQL editor. It records every collection's value each night inside Supabase, so the Vault chart fills in on its own; no Render cron job is needed.
+
 ## What this does not cover yet
 
-- **Nightly value snapshots.** The backend has the route; scheduling it needs a Render cron job (paid) or a Supabase scheduled function. Until then, value history comes from price records.
 - **Real raw-book prices.** They're sample estimates, labelled as such in the app.
 - **An App Store or Play Store app.** That needs an Expo SDK upgrade and an Apple or Google developer account.
