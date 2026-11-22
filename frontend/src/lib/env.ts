@@ -16,3 +16,16 @@ export const API_BASE_URL =
 export const DEMO_MODE =
   process.env.EXPO_PUBLIC_DEMO_MODE === '1' ||
   (process.env.EXPO_PUBLIC_DEMO_MODE !== '0' && !process.env.EXPO_PUBLIC_API_BASE_URL);
+/**
+ * Live mode pointed at a hosted backend but built without a Supabase project:
+ * sign-in would be skipped and the backend would refuse every request. The app
+ * shows this message instead of half-working. (A local backend on localhost is
+ * allowed, for testing with DEV_USER_ID.)
+ */
+export const CONFIG_PROBLEM: string | null =
+  !DEMO_MODE &&
+  SUPABASE_URL.includes('your-project-ref') &&
+  !/^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(API_BASE_URL)
+    ? 'This build has no Supabase project set. In Render, open comicgrade-app → Environment, set ' +
+      'EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY, then run Manual Deploy.'
+    : null;

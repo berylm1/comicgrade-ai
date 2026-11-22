@@ -1,7 +1,7 @@
 import './global.css';
 
 import React from 'react';
-import { ActivityIndicator, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Text, View, useWindowDimensions } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { Anton_400Regular } from '@expo-google-fonts/anton';
@@ -17,6 +17,7 @@ import InsightsScreen from './src/screens/InsightsScreen';
 import ComicDetailScreen from './src/screens/ComicDetailScreen';
 import SignInScreen from './src/screens/SignInScreen';
 import { AUTH_ENABLED, AuthProvider, useAuth } from './src/lib/auth';
+import { CONFIG_PROBLEM } from './src/lib/env';
 import { FRAME_HEIGHT, FRAME_WIDTH, useFramed } from './src/components/ui';
 
 type RootStackParamList = {
@@ -107,6 +108,11 @@ function AppShell() {
       <StatusBar style="light" />
       {!fontsLoaded || loading ? (
         <ActivityIndicator color="#ffd21f" style={{ marginTop: 160 }} />
+      ) : CONFIG_PROBLEM ? (
+        <View style={{ flex: 1, justifyContent: 'center', padding: 24 }}>
+          <Text style={{ color: '#ffd21f', fontSize: 22, fontWeight: '700' }}>Setup needed</Text>
+          <Text style={{ color: '#c8c8d8', marginTop: 8, lineHeight: 20 }}>{CONFIG_PROBLEM}</Text>
+        </View>
       ) : AUTH_ENABLED && !session ? (
         <SignInScreen />
       ) : (
