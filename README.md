@@ -3,8 +3,20 @@
 A mobile-first **comic book valuation & grading** prototype.
 
 - **Frontend:** React Native (Expo) with a dark "comic pop" theme via NativeWind (Tailwind CSS)
-- **Backend:** Python FastAPI — image routing, AI vision pipeline (mock or OpenAI), Supabase access
-- **Database:** Supabase (PostgreSQL) — `profiles`, `comics`, `price_history` + public `cover-images` storage bucket
+- **Backend:** Python FastAPI: Claude vision grading (mock and OpenAI also available), sign-in checks, Supabase access
+- **Database:** Supabase (PostgreSQL): collection, price history, grade reports, value snapshots, series catalog, plus a public `cover-images` storage bucket
+
+## Start here
+
+| I want to... | Read |
+|---|---|
+| Show the app to someone with no setup | [Quick demo](#quick-demo-no-backend-needed) below |
+| Put it online and use it on my phone | [docs/hosting-and-phone.md](docs/hosting-and-phone.md) |
+| See every go-live step and where things stand | [docs/go-live.md](docs/go-live.md) |
+| Run the vision benchmark for the scan flow | [docs/vision-test-2026-11.md](docs/vision-test-2026-11.md) |
+| Develop locally | Sections 1 to 5 below |
+
+**Where things stand (Nov 22, 2026):** the Supabase project is set up and checked end to end, with the demo collection loaded into the owner's account. Next is hosting on Render (`render.yaml`) and the phone test. The vision benchmark hasn't been run yet. Raw-book prices are sample estimates.
 
 ```
 comicgrade-ai/
@@ -18,7 +30,8 @@ comicgrade-ai/
 │           ├── DashboardScreen.tsx       # Vault: value over time, raw vs slabbed lens, top holdings
 │           ├── CollectionScreen.tsx      # Searchable, filterable collection grouped by publisher
 │           ├── ScanScreen.tsx            # Guided front/back/spine scan (demo walkthrough or live camera)
-│           ├── LiveScanner.tsx           # Camera: front, back, spine → POST /vision/grade → save (demo mode off)
+│           ├── LiveScanner.tsx           # Camera: front, back, spine → POST /vision/grade → "Is this your book?" → save
+│           ├── SignInScreen.tsx          # Email + password sign-in (email code optional)
 │           ├── InsightsScreen.tsx        # Slab pre-screen queue, run gaps, insurance export
 │           └── ComicDetailScreen.tsx     # Explainable grade, value chart, slab decision, price logging
 ├── backend/                   # FastAPI server
@@ -34,9 +47,15 @@ comicgrade-ai/
 │           ├── vision.py      # POST /vision/analyze, POST /vision/grade (mock, OpenAI or Claude)
 │           ├── comics.py      # CRUD, grade reports, price history, cover upload to Storage
 │           ├── portfolio.py   # Collection value history + nightly snapshots
+│           ├── pricing.py     # Value estimate for a book not saved yet
 │           └── runs.py        # Series run gaps
 │   ├── scripts/seed_demo.py   # Loads the demo collection into a real Supabase project
+│   ├── eval/                  # Vision benchmark harness (see docs/vision-test-2026-11.md)
+│   ├── Dockerfile             # Backend image for hosting
 │   └── tests/                 # pytest suite (in-memory Supabase fake, mocked Claude SDK)
+├── docs/                      # Hosting, go-live, vision test, market research
+├── render.yaml                # Render blueprint: backend + web app
+├── .github/workflows/ci.yml   # Tests and type-check on every push
 └── supabase/migrations/       # SQL schema + storage bucket policies
     ├── 001_initial_schema.sql
     ├── 002_storage_bucket.sql
@@ -66,18 +85,18 @@ What the demo shows:
 
 Titles in the sample set are real books. Grades, dollar values, run gaps and grade reports are **illustrative demo data**, and covers are generated placeholders. To show the same collection from a real backend, load it with `backend/scripts/seed_demo.py` (see below).
 
-**Going live** (Supabase, hosting, phone test, benchmark): see [`docs/go-live.md`](docs/go-live.md). Every push runs the backend tests and the frontend type-check on GitHub (`.github/workflows/ci.yml`).
+Every push runs the backend tests and the frontend type-check on GitHub (`.github/workflows/ci.yml`).
 
 ## 1. Prerequisites
 
 - Node.js ≥ 18 and npm (frontend)
 - Python ≥ 3.10 (backend)
-- Expo Go on your phone, or an iOS Simulator / Android emulator
-- A (free) Supabase project — https://supabase.com
+- A (free) Supabase project: https://supabase.com
+- For phones: the hosted web app ([docs/hosting-and-phone.md](docs/hosting-and-phone.md)), or an iOS Simulator / Android emulator. The project is on Expo SDK 52, which the current App Store Expo Go no longer opens.
 
 ## 2. Database setup (Supabase)
 
-1. Create a project at supabase.com. Grab **Project URL**, **anon key**, and **service_role key** from *Project Settings → API*.
+1. Create a project at supabase.com. Grab the **Project URL**, the **publishable key** (`sb_publishable_...`) and the **secret key** (`sb_secret_...`) from *Project Settings → API Keys*.
 2. In the SQL editor, run:
    1. `supabase/migrations/001_initial_schema.sql`
    2. `supabase/migrations/002_storage_bucket.sql`
@@ -86,7 +105,7 @@ Titles in the sample set are real books. Grades, dollar values, run gaps and gra
    5. `supabase/migrations/005_comic_format.sql` (annuals and collected editions are separate from single issues)
 
    (Or use the Supabase CLI: `supabase link --project-ref <ref> && supabase db push`.)
-3. Create a test user under **Authentication → Users** and copy its user id.
+3. Create an account in the app (email + password), confirm the email, and copy its user id from **Authentication → Users**. Supabase's built-in email sender only mails members of your Supabase team; see [docs/go-live.md](docs/go-live.md) for custom email.
 
 ## 3. Backend (FastAPI)
 
@@ -103,7 +122,7 @@ uvicorn app.main:app --reload --port 8000
 - Interactive API docs: **http://localhost:8000/docs**
 - `GET /health`: liveness check
 
-**Auth.** Every route except `/health` acts as one user. The app sends the signed-in user's Supabase access token as `Authorization: Bearer <token>` and the backend verifies it with Supabase, then scopes every query to that user. For local testing without a sign-in screen, leave `AUTH_REQUIRED=false` and set `DEV_USER_ID` to your test user's id: requests with no token then act as that user. Set `AUTH_REQUIRED=true` anywhere real.
+**Auth.** Every route except `/health` acts as one user. The app sends the signed-in user's Supabase access token as `Authorization: Bearer <token>`. The backend verifies it against the project's public signing keys, then scopes every query to that user. For local testing without a sign-in screen, leave `AUTH_REQUIRED=false` and set `DEV_USER_ID` to your test user's id: requests with no token then act as that user. Set `AUTH_REQUIRED=true` anywhere real.
 
 **Grading.**
 - `POST /vision/grade`: multipart `front` (required), `back` and `spine` photos. Returns the identification, the full grade report (range, confidence, per-area scores) and a raw value estimate with the slab-or-not maths.
@@ -131,7 +150,7 @@ python scripts/seed_demo.py --user-id <id> --fill-runs   # also add run books so
 python scripts/seed_demo.py --user-id <id> --reset       # remove that user's books first
 ```
 
-It writes the 14 sample books, ten months of price history, monthly snapshots and the three run catalogs. Running it again replaces those books rather than duplicating them.
+It writes the 14 sample books (72 with `--fill-runs`), ten months of price history labelled "sample", monthly snapshots and the three run catalogs. Running it again replaces those books rather than duplicating them.
 
 **Tests:**
 
@@ -146,13 +165,12 @@ python -m pytest
 cd frontend
 npm install
 
-cp .env.example .env             # EXPO_PUBLIC_SUPABASE_URL / ANON_KEY / API_BASE_URL
-npx expo start
+cp .env.example .env             # EXPO_PUBLIC_SUPABASE_URL / ANON_KEY (publishable key) / API_BASE_URL
+npx expo start --web             # or press i / a for a simulator
 ```
 
-- Scan the QR code with **Expo Go** (Android) or the Camera app (iOS), or press `i` for the iOS Simulator.
-- On a **physical device**, set `EXPO_PUBLIC_API_BASE_URL` to your Mac's LAN IP (e.g. `http://192.168.1.x:8000`) — `localhost` won't resolve from the phone.
-- Grant camera permission when prompted; the screen shows the yellow cover reticle and the dashed cyan spine strip.
+- Build the web app as Render does: `npx expo export --platform web` (output in `dist/`).
+- On a phone, use the hosted web app ([docs/hosting-and-phone.md](docs/hosting-and-phone.md)). Expo Go from the App Store doesn't open SDK 52 projects.
 
 ## 5. Full flow to try
 

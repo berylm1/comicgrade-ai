@@ -1,0 +1,51 @@
+# Render Blueprint: deploys the backend API and the web app from this repo.
+# In Render: New > Blueprint > pick this repository. Render asks for each
+# value marked `sync: false`; those are kept in Render, never in git.
+# Step-by-step guide: docs/hosting-and-phone.md
+services:
+  # FastAPI backend (backend/Dockerfile)
+  - type: web
+    name: comicgrade-api
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: VISION_PROVIDER
+        value: claude
+      - key: AUTH_REQUIRED
+        value: "true"
+      - key: CRON_SECRET
+        generateValue: true
+
+  # The app as a web page, opened in the phone's browser (camera works over HTTPS)
+  - type: web
+    name: comicgrade-app
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci --no-audit --no-fund && npx expo export --platform web
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: EXPO_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: EXPO_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      # The backend's public address, e.g. https://comicgrade-api.onrender.com
+      # (copy it from the comicgrade-api page once that service is live).
+      - key: EXPO_PUBLIC_API_BASE_URL
+        sync: false
+      - key: EXPO_PUBLIC_DEMO_MODE
+        value: "0"
+      - key: NODE_VERSION
+        value: "22"
