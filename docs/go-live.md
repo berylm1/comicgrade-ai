@@ -6,8 +6,10 @@ The code side is done: sign-in, scan confirmation, sample-price labels and autom
 
 1. Create a free project at supabase.com. From **Project Settings → API**, copy the **Project URL**, **anon key** and **service_role key**.
 2. In the **SQL editor**, run the migrations in order: `supabase/migrations/001` through `005`.
-3. **Make sign-in emails send a code.** The app signs in with a 6-digit code, not a link. Under **Authentication → Emails → Templates**, edit **Magic Link** so the body includes the code, for example:
-   `Your ComicGrade AI sign-in code is {{ .Token }}`
+3. **Sign-in.** The app signs in with **email + password**, which works with Supabase's default email settings. Two things to know about those defaults:
+   - Supabase's built-in email sender only delivers to members of your Supabase team, a few emails an hour, and its templates can't be edited. That's fine for your own testing. For testers or prospects, set up your own email provider under **Authentication → Emails → SMTP Settings** (Resend, Postmark and others have free tiers).
+   - New accounts must confirm their email. The confirmation link opens your **Site URL** (Authentication → URL Configuration), which defaults to `http://localhost:3000`, so the page may not load. The account is confirmed anyway; go back to the app and sign in.
+   - Optional, once custom SMTP is set up: to also allow "email me a sign-in code", edit the **Magic Link** template to include `{{ .Token }}`.
 4. Sign in to the app once with your email (step 3 below creates the user). Then copy your user id from **Authentication → Users**.
 5. Optional: load the demo collection into your account:
    `cd backend && python scripts/seed_demo.py --user-id <your user id> --fill-runs`
@@ -22,8 +24,8 @@ Any container host works (Render, Fly.io, Railway, Cloud Run). Point it at `back
 | Variable | Value |
 |---|---|
 | `SUPABASE_URL` | Project URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | service_role key |
-| `SUPABASE_ANON_KEY` | anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | secret (service_role) key, `sb_secret_...` or the legacy JWT |
+| `SUPABASE_ANON_KEY` | publishable (anon) key; optional for the backend |
 | `AUTH_REQUIRED` | `true` |
 | `VISION_PROVIDER` | `claude` |
 | `ANTHROPIC_API_KEY` | your Anthropic key |
@@ -35,19 +37,21 @@ Nightly value snapshots: schedule a daily call to `POST <backend>/portfolio/snap
 
 Check: `GET <backend>/health` returns `{"status":"ok"}`, and `GET <backend>/comics` without a token returns 401.
 
+How the backend checks sign-ins: it verifies each user's token against the project's public signing keys (`/auth/v1/.well-known/jwks.json`), so it needs no extra secret. A signed-out user's token keeps working until it expires, about an hour.
+
 ## 3. App on your phone (Expo Go)
 
 1. Install **Expo Go** on the phone.
 2. In `frontend/.env`:
    ```
    EXPO_PUBLIC_SUPABASE_URL=<Project URL>
-   EXPO_PUBLIC_SUPABASE_ANON_KEY=<anon key>
+   EXPO_PUBLIC_SUPABASE_ANON_KEY=<publishable key, sb_publishable_...>
    EXPO_PUBLIC_API_BASE_URL=<backend URL, https://...>
    ```
 3. `cd frontend && npm install && npx expo start`, then scan the QR code with the phone.
 
 Phone test checklist:
-- [ ] Sign in with an email code; sign out from the Vault and sign back in.
+- [ ] Create an account with email + password, confirm the email, sign in; sign out from the Vault and sign back in.
 - [ ] Scan a book: front, back and spine. Then scan another with front only.
 - [ ] On "Is this your book?", pick an alternative, then try typing a book in by hand.
 - [ ] Use at least two books **in bags or sleeves** and one in poor light: the benchmark photos are mostly clean scans.

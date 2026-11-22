@@ -2,6 +2,9 @@ fastapi==0.115.6
 uvicorn[standard]==0.34.0
 python-dotenv==1.0.1
 httpx==0.28.1
-supabase==2.11.0
+supabase==2.34.1
 python-multipart==0.0.20
 anthropic==2.8.0
+# Verifies Supabase access tokens against the project's public signing keys.
+PyJWT[crypto]==2.15.1
+cryptography==50.0.2

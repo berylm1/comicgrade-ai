@@ -166,6 +166,6 @@ npx expo start
 
 - Vision **mock** mode returns plausible synthetic results. Set `VISION_PROVIDER=claude` (or `openai`) for real identification and grading.
 - RLS policies restrict each user to their own rows; the backend uses the service-role key, so it bypasses RLS by design.
-- Sign-in uses Supabase email codes and is required whenever the app points at a real Supabase project. With the placeholder Supabase config, sign-in is skipped and the backend falls back to `DEV_USER_ID` (only while `AUTH_REQUIRED=false`).
+- Sign-in uses Supabase email + password (an email code is optional once custom SMTP is set up) and is required whenever the app points at a real Supabase project. The backend verifies tokens against the project's public signing keys. With the placeholder Supabase config, sign-in is skipped and the backend falls back to `DEV_USER_ID` (only while `AUTH_REQUIRED=false`).
 - Raw values come from a sample (mock) provider until a real raw-comps source is chosen; the app labels them as sample estimates.
 - Books from the backend have no `cover_palette`, so books without a cover photo show the default placeholder colors.

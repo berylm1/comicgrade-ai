@@ -1,5 +1,6 @@
 /**
- * Sign-in state. Live mode uses Supabase email codes; demo mode and a
+ * Sign-in state. Live mode uses Supabase email + password, or a one-time email
+ * code once the project has custom SMTP and a template with {{ .Token }}. Demo mode and a
  * placeholder Supabase config skip sign-in (the backend then falls back to
  * DEV_USER_ID, which only works while the backend has AUTH_REQUIRED=false).
  */
@@ -16,6 +17,9 @@ type AuthState = {
   session: Session | null;
   loading: boolean;
   email: string | null;
+  signInWithPassword: (email: string, password: string) => Promise<void>;
+  /** Returns true when signed in straight away, false when the email must be confirmed first. */
+  signUp: (email: string, password: string) => Promise<boolean>;
   sendCode: (email: string) => Promise<void>;
   verifyCode: (email: string, code: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -44,6 +48,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       session,
       loading,
       email: session?.user.email ?? null,
+      signInWithPassword: async (email, password) => {
+        const { error } = await getSupabase().auth.signInWithPassword({ email: email.trim(), password });
+        if (error) throw error;
+      },
+      signUp: async (email, password) => {
+        const { data, error } = await getSupabase().auth.signUp({ email: email.trim(), password });
+        if (error) throw error;
+        return Boolean(data.session);
+      },
       sendCode: async (email) => {
         const { error } = await getSupabase().auth.signInWithOtp({
           email: email.trim(),

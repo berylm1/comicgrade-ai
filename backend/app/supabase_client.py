@@ -24,4 +24,7 @@ def get_supabase() -> Client:
             detail="Server is not connected to Supabase: set SUPABASE_URL and "
             "SUPABASE_SERVICE_ROLE_KEY (see backend/.env.example).",
         )
-    return create_client(settings.supabase_url, key)
+    try:
+        return create_client(settings.supabase_url, key)
+    except Exception as exc:  # malformed URL or key
+        raise HTTPException(status_code=503, detail=f"Supabase client could not start: {exc}")

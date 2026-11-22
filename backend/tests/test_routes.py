@@ -2,7 +2,9 @@ from datetime import date, timedelta
 
 from app.config import settings
 from app.routers.portfolio import month_starts
-from conftest import AUTH_A, AUTH_B, USER_A, USER_B, add_comic
+import jwt
+
+from conftest import AUTH_A, AUTH_B, OTHER_KEY, TOKEN_A, USER_A, USER_B, add_comic, make_token
 
 NEW_ID = "33333333-3333-4333-8333-333333333333"
 
@@ -18,6 +20,47 @@ def test_dev_user_fallback_when_no_token(client, sb):
 def test_invalid_token_is_rejected(client):
     r = client.get("/comics", headers={"Authorization": "Bearer nope"})
     assert r.status_code == 401
+
+
+def bearer(token):
+    return {"Authorization": f"Bearer {token}"}
+
+
+def test_valid_token_acts_as_its_user(client, sb):
+    add_comic(sb, USER_B, title="Spawn")
+    assert [c["title"] for c in client.get("/comics", headers=bearer(make_token(USER_B))).json()] == ["Spawn"]
+
+
+def test_expired_token_is_rejected(client):
+    assert client.get("/comics", headers=bearer(make_token(exp_in=-120))).status_code == 401
+
+
+def test_wrong_audience_or_issuer_is_rejected(client):
+    assert client.get("/comics", headers=bearer(make_token(aud="anon"))).status_code == 401
+    assert client.get("/comics", headers=bearer(make_token(iss="https://other.supabase.co/auth/v1"))).status_code == 401
+
+
+def test_token_signed_with_another_key_is_rejected(client):
+    assert client.get("/comics", headers=bearer(make_token(key=OTHER_KEY))).status_code == 401
+
+
+def test_tampered_token_is_rejected(client):
+    head, body, sig = TOKEN_A.split(".")
+    forged = jwt.encode({"sub": USER_B}, "x", algorithm="HS256").split(".")[1]
+    assert client.get("/comics", headers=bearer(f"{head}.{forged}.{sig}")).status_code == 401
+
+
+def test_token_without_user_id_is_rejected(client):
+    assert client.get("/comics", headers=bearer(make_token(sub="not-a-uuid"))).status_code == 401
+
+
+def test_legacy_hs256_token_falls_back_to_supabase(client, sb):
+    legacy = jwt.encode({"sub": USER_B, "aud": "authenticated"}, "legacy-secret-at-least-32-bytes-long!", algorithm="HS256")
+    sb.tokens[legacy] = USER_B
+    add_comic(sb, USER_B, title="Spawn")
+    assert [c["title"] for c in client.get("/comics", headers=bearer(legacy)).json()] == ["Spawn"]
+    unknown = jwt.encode({"sub": USER_B}, "another-secret-at-least-32-bytes-long", algorithm="HS256")
+    assert client.get("/comics", headers=bearer(unknown)).status_code == 401
 
 
 def test_malformed_header_is_rejected(client):
