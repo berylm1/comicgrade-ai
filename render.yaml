@@ -7,8 +7,13 @@ services:
   - type: web
     name: comicgrade-api
     runtime: docker
-    rootDir: backend
-    dockerfilePath: ./Dockerfile
+    # Paths are from the repository root, so they mean the same thing however
+    # Render resolves them. buildFilter: only redeploy when the backend changes.
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    buildFilter:
+      paths:
+        - backend/**
     plan: free
     healthCheckPath: /health
     envVars:
@@ -29,9 +34,11 @@ services:
   - type: web
     name: comicgrade-app
     runtime: static
-    rootDir: frontend
-    buildCommand: npm ci --no-audit --no-fund && npx expo export --platform web
-    staticPublishPath: dist
+    buildCommand: cd frontend && npm ci --no-audit --no-fund && npx expo export --platform web
+    staticPublishPath: ./frontend/dist
+    buildFilter:
+      paths:
+        - frontend/**
     routes:
       - type: rewrite
         source: /*
