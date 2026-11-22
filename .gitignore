@@ -1,0 +1,25 @@
+node_modules/
+.expo/
+dist/
+web-build/
+*.orig.*
+
+# Env secrets
+.env
+.env.local
+
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Logs
+*.log
+# Local Claude Code launch config
+.claude/
+# Cover photos are copyrighted and the repo is public: keep them out of git.
+backend/eval/photos/
