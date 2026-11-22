@@ -4,7 +4,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routers import comics, portfolio, runs, vision
+from .routers import comics, portfolio, pricing, runs, vision
 
 app = FastAPI(
     title="ComicGrade AI",
@@ -23,6 +23,7 @@ app.include_router(vision.router)
 app.include_router(comics.router)
 app.include_router(portfolio.router)
 app.include_router(runs.router)
+app.include_router(pricing.router)
 
 
 @app.get("/")

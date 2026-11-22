@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
+from fastapi import HTTPException
 from supabase import Client, create_client
 
 from .config import settings
@@ -17,8 +18,10 @@ from .config import settings
 def get_supabase() -> Client:
     key = settings.supabase_service_role_key or settings.supabase_anon_key
     if not settings.supabase_url or not key:
-        raise RuntimeError(
-            "SUPABASE_URL / SUPABASE_ANON_KEY are missing. "
-            "Copy backend/.env.example to backend/.env and fill in your project credentials."
+        # 503 so a misconfigured server says so instead of failing with a bare 500.
+        raise HTTPException(
+            status_code=503,
+            detail="Server is not connected to Supabase: set SUPABASE_URL and "
+            "SUPABASE_SERVICE_ROLE_KEY (see backend/.env.example).",
         )
     return create_client(settings.supabase_url, key)

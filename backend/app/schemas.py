@@ -8,6 +8,8 @@ from pydantic import BaseModel, Field
 
 GradeType = Literal["raw", "cgc", "cbcs", "pgx", "other"]
 ValueLens = Literal["all", "raw", "certified"]
+# A regular issue, an annual, or a collected edition (hardcover, trade, deluxe).
+BookFormat = Literal["single_issue", "annual", "collected_edition", "other"]
 SubmitVerdict = Literal["submit", "hold", "skip"]
 
 
@@ -84,6 +86,7 @@ class ComicCreate(BaseModel):
     issue_number: str
     publisher: str = "Unknown"
     year: Optional[int] = Field(None, ge=1800, le=2100)
+    format: BookFormat = "single_issue"
     key_note: Optional[str] = None
     cover_image_url: Optional[str] = None
     estimated_grade: Optional[float] = Field(None, ge=0.1, le=10.0)
@@ -101,6 +104,7 @@ class ComicOut(BaseModel):
     issue_number: str
     publisher: str
     year: Optional[int] = None
+    format: str = "single_issue"
     key_note: Optional[str] = None
     cover_image_url: Optional[str] = None
     estimated_grade: Optional[float] = None
@@ -170,6 +174,7 @@ class ScanIdentification(BaseModel):
     issue_number: str
     publisher: str = "Unknown"
     year: Optional[int] = None
+    format: BookFormat = "single_issue"
     key_note: Optional[str] = None
     signature_detected: bool = False
     notes: str = ""
@@ -179,8 +184,15 @@ class GradeScanResult(BaseModel):
     """Response of POST /vision/grade: who the book is plus its full grade report."""
 
     identification: ScanIdentification
+    # Other issues the photos could be, for the user to choose from (may be empty).
+    alternatives: list[ScanIdentification] = Field(default_factory=list)
     report: GradeReportBody
     # How sure the model is that the identification is right (0-1).
     match_confidence: float = Field(..., ge=0, le=1)
     estimated_value: Optional[float] = None
     value_source: Optional[str] = None
+
+
+class PriceEstimate(BaseModel):
+    value: float
+    source: str

@@ -4,6 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { api } from '../lib/api';
+import { isSamplePrice } from '../lib/scan';
 import type { Comic, GradeReport, PricePoint } from '../types';
 import { Button, colors, Delta, isRaw, Pill, SectionTitle, Toast, usd, useAppWidth } from '../components/ui';
 import { AreaChart, CoverArt, DefectBar, GradeDial } from '../components/visuals';
@@ -199,6 +200,9 @@ export default function ComicDetailScreen({ route }: Props) {
               </Text>
               <Text className="text-pop-yellow text-4xl font-display mt-1">{usd(comic.current_market_value)}</Text>
               <Delta pct={deltaPct} suffix=" since first sale" />
+              {prices.length > 0 && isSamplePrice(prices[prices.length - 1].source) ? (
+                <Text className="text-neutral-500 text-xs mt-1">Sample estimate, not real sales data</Text>
+              ) : null}
             </View>
             <Button label={refreshing ? 'Refreshing…' : '↻ Refresh'} tone="ghost" onPress={refreshValue} disabled={refreshing} />
           </View>

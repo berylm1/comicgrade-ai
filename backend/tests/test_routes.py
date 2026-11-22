@@ -291,3 +291,41 @@ def test_vision_needs_a_user(client, monkeypatch):
     monkeypatch.setattr(settings, "dev_user_id", "")
     r = client.post("/vision/grade", files={"front": ("f.jpg", b"x", "image/jpeg")})
     assert r.status_code == 401
+
+
+# -------------------------------------------------------- format / pricing
+
+
+def test_annuals_do_not_count_toward_runs(client, sb):
+    _seed_series(sb, "Amazing Spider-Man #1 to #3", "Amazing Spider-Man", 1, 3, {})
+    add_comic(sb, title="Amazing Spider-Man", issue_number="1")
+    add_comic(sb, title="Amazing Spider-Man", issue_number="2", format="annual")
+    gap = client.get("/runs/gaps").json()[0]
+    assert gap["owned"] == 1 and gap["missing_key"] == "#2"
+
+
+def test_create_keeps_format(client):
+    r = client.post("/comics", json={"title": "Detective Comics", "issue_number": "1000", "format": "collected_edition"})
+    assert r.json()["format"] == "collected_edition"
+    assert client.post("/comics", json={"title": "X", "issue_number": "1", "format": "poster"}).status_code == 422
+
+
+def test_price_estimate(client):
+    r = client.get("/pricing/estimate", params={"title": "Spawn", "issue_number": "1", "grade": 9.4})
+    assert r.status_code == 200
+    assert r.json()["source"] == "mock" and r.json()["value"] > 0
+    assert client.get("/pricing/estimate", params={"title": "", "issue_number": "1"}).status_code == 422
+
+
+def test_missing_supabase_config_is_503(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app import supabase_client
+    from app.main import app
+
+    monkeypatch.setattr(settings, "supabase_url", "")
+    supabase_client.get_supabase.cache_clear()
+    try:
+        assert TestClient(app).get("/comics").status_code == 503
+    finally:
+        supabase_client.get_supabase.cache_clear()

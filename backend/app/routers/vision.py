@@ -164,6 +164,7 @@ async def _claude_grade(photos: list[Photo]) -> GradeScanResult:
         raise HTTPException(status_code=exc.status_code, detail=str(exc))
     return GradeScanResult(
         identification=graded.identification,
+        alternatives=graded.alternatives,
         report=graded.report,
         match_confidence=graded.match_confidence,
     )

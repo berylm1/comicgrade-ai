@@ -44,7 +44,9 @@ def compute_gaps(series: list[dict], issues: list[dict], comics: list[dict]) -> 
         owned = {
             n
             for c in comics
-            if (c.get("series_id") == s["id"] or str(c.get("title", "")).strip().lower() == match)
+            # Annuals and collected editions reuse issue numbers but are not run issues.
+            if (c.get("format") or "single_issue") == "single_issue"
+            and (c.get("series_id") == s["id"] or str(c.get("title", "")).strip().lower() == match)
             and (n := issue_int(c.get("issue_number"))) is not None
             and first <= n <= last
         }
@@ -76,7 +78,7 @@ def run_gaps(user_id: str = Depends(current_user_id), sb=Depends(get_supabase)):
     """Runs the user has started but not finished, with the best issue to buy next."""
     comics = (
         sb.table("comics")
-        .select("title, issue_number, series_id")
+        .select("title, issue_number, series_id, format")
         .eq("user_id", user_id)
         .execute()
         .data

@@ -5,6 +5,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { api } from '../lib/api';
 import { DEMO_MODE } from '../lib/env';
+import { AUTH_ENABLED, useAuth } from '../lib/auth';
 import { buildReport } from '../lib/grading';
 import type { Comic, ValueLens } from '../types';
 import {
@@ -38,6 +39,7 @@ function inLens(comic: Comic, lens: ValueLens): boolean {
 /** Valuation dashboard: collection value over time, headline stats, top holdings. */
 export default function DashboardScreen({ navigation }: Props) {
   const width = useAppWidth();
+  const { signOut } = useAuth();
   const [comics, setComics] = useState<Comic[]>([]);
   const [history, setHistory] = useState<number[]>([]);
   const [lens, setLens] = useState<ValueLens>('all');
@@ -94,6 +96,11 @@ export default function DashboardScreen({ navigation }: Props) {
       <View className="flex-row items-center justify-between">
         <Text className="text-pop-magenta text-xs font-bold uppercase tracking-widest">ComicGrade AI</Text>
         {DEMO_MODE && <DemoTag />}
+        {AUTH_ENABLED && (
+          <Text className="text-pop-cyan text-xs font-bold" accessibilityRole="button" onPress={signOut}>
+            Sign out
+          </Text>
+        )}
       </View>
       <Text className="text-white text-4xl font-display uppercase mt-1">Your Vault</Text>
 

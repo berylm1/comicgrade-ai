@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import base64
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 import anthropic
@@ -32,28 +32,36 @@ CGC_STEPS = [
 
 _nullable = lambda t: {"anyOf": [{"type": t}, {"type": "null"}]}  # noqa: E731
 
+FORMATS = ["single_issue", "annual", "collected_edition", "other"]
+
+IDENTITY_SCHEMA: dict = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["title", "issue_number", "publisher", "year", "format", "key_note", "signature_detected"],
+    "properties": {
+        "title": {"type": "string"},
+        "issue_number": {"type": "string"},
+        "publisher": {"type": "string"},
+        "year": _nullable("integer"),
+        "format": {"type": "string", "enum": FORMATS},
+        "key_note": _nullable("string"),
+        "signature_detected": {"type": "boolean"},
+    },
+}
+
 GRADE_SCHEMA: dict = {
     "type": "object",
     "additionalProperties": False,
     "required": [
-        "is_comic", "identification", "match_confidence", "grade", "grade_low",
+        "is_comic", "identification", "alternatives", "match_confidence", "grade", "grade_low",
         "grade_high", "confidence", "defects", "notes",
     ],
     "properties": {
         "is_comic": {"type": "boolean"},
-        "identification": {
-            "type": "object",
-            "additionalProperties": False,
-            "required": ["title", "issue_number", "publisher", "year", "key_note", "signature_detected"],
-            "properties": {
-                "title": {"type": "string"},
-                "issue_number": {"type": "string"},
-                "publisher": {"type": "string"},
-                "year": _nullable("integer"),
-                "key_note": _nullable("string"),
-                "signature_detected": {"type": "boolean"},
-            },
-        },
+        "identification": IDENTITY_SCHEMA,
+        # Up to two other issues the photos could be, most likely first, for the
+        # user to pick from when the first answer is wrong.
+        "alternatives": {"type": "array", "items": IDENTITY_SCHEMA},
         "match_confidence": {"type": "number"},
         "grade": {"type": "number"},
         "grade_low": {"type": "number"},
@@ -84,6 +92,12 @@ area you can see. Give the cover year if it is printed or you know it for that i
 key_note is a short reason the issue matters to collectors (for example a first \
 appearance), or null when it is not a notable issue. Do not guess a key you are not sure of. \
 match_confidence (0 to 1) is how sure you are of the title and issue number.
+title is the series name without the issue number. format is "annual" when the cover says \
+Annual, "collected_edition" for a hardcover, trade, deluxe edition or other collection, \
+otherwise "single_issue". Watch for series that share words (a "New" series versus the \
+original) and collected editions that reuse an issue number. Never state a printing: it \
+cannot be told from the art or color. In alternatives, list up to two other issues these \
+photos could plausibly be, most likely first, or none when you are sure.
 
 Grading: use the CGC 10-point scale ({", ".join(str(s) for s in CGC_STEPS)}). Score each \
 of these areas on the same scale, with a short note naming what you see: \
@@ -132,6 +146,7 @@ class _ModelGrade(BaseModel):
 
     is_comic: bool
     identification: ScanIdentification
+    alternatives: list[ScanIdentification] = []
     match_confidence: float
     grade: float
     grade_low: float
@@ -147,6 +162,23 @@ class ClaudeGrade:
     report: GradeReportBody
     match_confidence: float
     model: str
+    alternatives: list[ScanIdentification] = field(default_factory=list)
+
+
+def clean_identity(ident: ScanIdentification, notes: str = "") -> ScanIdentification:
+    return ident.model_copy(
+        update={
+            "title": ident.title.strip() or "Unknown",
+            "issue_number": ident.issue_number.strip().lstrip("#") or "?",
+            "publisher": ident.publisher.strip() or "Unknown",
+            "key_note": (ident.key_note or "").strip() or None,
+            "notes": notes,
+        }
+    )
+
+
+def _same_book(a: ScanIdentification, b: ScanIdentification) -> bool:
+    return (a.title.lower(), a.issue_number, a.format) == (b.title.lower(), b.issue_number, b.format)
 
 
 def snap(grade: float) -> float:
@@ -202,15 +234,12 @@ def parse_response(response, photos_used: int) -> ClaudeGrade:
     low, high = snap(low), snap(high)
     ident = parsed.identification
     notes = " ".join(s for s in (ident.notes, parsed.notes) if s).strip()
-    identification = ident.model_copy(
-        update={
-            "title": ident.title.strip() or "Unknown",
-            "issue_number": ident.issue_number.strip().lstrip("#") or "?",
-            "publisher": ident.publisher.strip() or "Unknown",
-            "key_note": (ident.key_note or "").strip() or None,
-            "notes": notes,
-        }
-    )
+    identification = clean_identity(ident, notes)
+    alternatives: list[ScanIdentification] = []
+    for alt in parsed.alternatives:
+        alt = clean_identity(alt)
+        if not _same_book(alt, identification) and not any(_same_book(alt, a) for a in alternatives):
+            alternatives.append(alt)
     report = GradeReportBody(
         grade=grade,
         grade_low=min(low, grade),
@@ -222,6 +251,7 @@ def parse_response(response, photos_used: int) -> ClaudeGrade:
         photos_used=photos_used,
     )
     return ClaudeGrade(
+        alternatives=alternatives[:2],
         identification=identification,
         report=report,
         match_confidence=round(min(1.0, max(0.0, parsed.match_confidence)), 2),

@@ -7,6 +7,7 @@ import type {
   Comic,
   GradeReport,
   GradeScanResult,
+  PriceEstimate,
   PricePoint,
   RunGap,
   ScanMatch,
@@ -291,4 +292,11 @@ export const demoApi = {
   },
 
   saveScan: (match: ScanMatch, _frontUri?: string | null): Promise<Comic> => demoApi.commitScan(match),
+
+  /** Illustrative value for a corrected identification (demo data, not market data). */
+  estimateValue: (title: string, issueNumber: string, grade?: number | null): Promise<PriceEstimate> => {
+    const base = 10 + seeded(`${title}#${issueNumber}`)() * 190;
+    const g = grade ?? 8;
+    return wait({ value: Math.round(base * Math.pow(Math.max(g, 0.5) / 9.8, 2.2) * 100) / 100, source: 'demo' });
+  },
 };

@@ -15,6 +15,8 @@ import CollectionScreen from './src/screens/CollectionScreen';
 import ScanScreen from './src/screens/ScanScreen';
 import InsightsScreen from './src/screens/InsightsScreen';
 import ComicDetailScreen from './src/screens/ComicDetailScreen';
+import SignInScreen from './src/screens/SignInScreen';
+import { AUTH_ENABLED, AuthProvider, useAuth } from './src/lib/auth';
 import { FRAME_HEIGHT, FRAME_WIDTH, useFramed } from './src/components/ui';
 
 type RootStackParamList = {
@@ -89,13 +91,24 @@ function DeviceFrame({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  return (
+    <AuthProvider>
+      <AppShell />
+    </AuthProvider>
+  );
+}
+
+function AppShell() {
   const [fontsLoaded] = useFonts({ Anton_400Regular, ...Ionicons.font });
+  const { session, loading } = useAuth();
 
   return (
     <DeviceFrame>
       <StatusBar style="light" />
-      {!fontsLoaded ? (
+      {!fontsLoaded || loading ? (
         <ActivityIndicator color="#ffd21f" style={{ marginTop: 160 }} />
+      ) : AUTH_ENABLED && !session ? (
+        <SignInScreen />
       ) : (
         <NavigationContainer
           theme={{

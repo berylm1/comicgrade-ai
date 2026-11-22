@@ -28,7 +28,7 @@ PRIMARY_KEYS: dict[str, tuple[str, ...]] = {
 DEFAULTS: dict[str, dict[str, Any]] = {
     "comics": {"publisher": "Unknown", "grade_type": "raw", "cover_image_url": None,
                "estimated_grade": None, "current_market_value": None, "slab_cert_number": None,
-               "year": None, "key_note": None, "series_id": None},
+               "year": None, "key_note": None, "series_id": None, "format": "single_issue"},
     "price_history": {"source": "manual"},
     "grade_reports": {"defects": [], "exterior_only": True, "source": "estimate", "photos_used": 1},
 }

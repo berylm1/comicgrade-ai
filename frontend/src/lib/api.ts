@@ -8,6 +8,7 @@ import type {
   Comic,
   GradeReport,
   GradeScanResult,
+  PriceEstimate,
   PricePoint,
   RunGap,
   ScanMatch,
@@ -101,6 +102,13 @@ const liveApi: typeof demoApi = {
       console.warn('[ComicGrade] cover upload failed, keeping the book without it:', err);
       return comic;
     }
+  },
+
+  /** Value for a book that is not saved yet (the scan review re-prices on a correction). */
+  estimateValue: (title: string, issueNumber: string, grade?: number | null): Promise<PriceEstimate> => {
+    const q = new URLSearchParams({ title, issue_number: issueNumber });
+    if (grade != null) q.set('grade', String(grade));
+    return request<PriceEstimate>(`/pricing/estimate?${q}`);
   },
 
   // The backend reads the user from the auth token; the argument is kept for API parity.

@@ -2,6 +2,9 @@
 
 export type GradeType = 'raw' | 'cgc' | 'cbcs' | 'pgx' | 'other';
 
+/** A regular issue, an annual, or a collected edition (hardcover, trade, deluxe). */
+export type BookFormat = 'single_issue' | 'annual' | 'collected_edition' | 'other';
+
 export interface Comic {
   id: string;
   title: string;
@@ -13,6 +16,7 @@ export interface Comic {
   grade_type?: GradeType;
   slab_cert_number?: string | null;
   current_market_value?: number | null;
+  format?: BookFormat;
   user_id?: string | null;
   created_at?: string | null;
 
@@ -113,6 +117,7 @@ export interface ScanIdentification {
   issue_number: string;
   publisher: string;
   year?: number | null;
+  format?: BookFormat;
   key_note?: string | null;
   signature_detected: boolean;
   notes: string;
@@ -121,8 +126,17 @@ export interface ScanIdentification {
 /** Response of POST /vision/grade: identification plus the full grade report. */
 export interface GradeScanResult {
   identification: ScanIdentification;
+  /** Other issues the photos could be, most likely first (may be empty). */
+  alternatives?: ScanIdentification[];
   report: Omit<GradeReport, 'comic_id'>;
   match_confidence: number;
   estimated_value?: number | null;
   value_source?: string | null;
+}
+
+/** GET /pricing/estimate: a value for a book that is not saved yet. */
+export interface PriceEstimate {
+  value: number;
+  /** 'mock' means sample pricing: no real raw-comps source is connected yet. */
+  source: string;
 }

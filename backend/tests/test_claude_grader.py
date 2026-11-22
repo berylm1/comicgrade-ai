@@ -28,7 +28,9 @@ GOOD = {
         "year": 1988,
         "key_note": "1st full appearance of Venom",
         "signature_detected": False,
+        "format": "single_issue",
     },
+    "alternatives": [],
     "match_confidence": 0.97,
     "grade": 9.25,  # off the CGC scale: snapped to 9.2
     "grade_low": 9.0,
@@ -224,3 +226,30 @@ def test_grade_route_refusal_is_422(client, monkeypatch):
     monkeypatch.setattr(claude_grader, "get_client", lambda: fake)
     r = client.post("/vision/grade", files={"front": ("f.jpg", b"\xff\xd8f", "image/jpeg")})
     assert r.status_code == 422
+
+
+# ------------------------------------------------------ alternatives / format
+
+
+def test_alternatives_are_cleaned_and_deduplicated():
+    alt_same = {**GOOD["identification"], "title": "Amazing Spider-Man", "issue_number": "300", "format": "single_issue"}
+    alt_annual = {**GOOD["identification"], "title": "Amazing Spider-Man", "issue_number": "#3", "format": "annual"}
+    payload = {
+        **GOOD,
+        "identification": {**GOOD["identification"], "format": "single_issue"},
+        "alternatives": [alt_same, alt_annual, alt_annual, alt_annual],
+    }
+    graded = parse_response(response(payload), 1)
+    assert [(a.issue_number, a.format) for a in graded.alternatives] == [("3", "annual")]
+
+
+def test_format_is_kept_on_identification():
+    payload = {**GOOD, "identification": {**GOOD["identification"], "format": "collected_edition"}}
+    assert parse_response(response(payload), 1).identification.format == "collected_edition"
+
+
+def test_identity_schema_requires_format():
+    from app.claude_grader import IDENTITY_SCHEMA
+
+    assert "format" in IDENTITY_SCHEMA["required"]
+    assert GRADE_SCHEMA["properties"]["alternatives"]["items"] is IDENTITY_SCHEMA

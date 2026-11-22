@@ -93,7 +93,8 @@ def price_history(comic_id: str, value: float, trend: float, source: str, today:
                 "comic_id": comic_id,
                 "sale_date": str(today if last else months_ago(today, MONTHS - 1 - k, 3 + rng.randrange(22))),
                 "price": round(price, 2),
-                "source": "raw-comps" if source == "raw" else "gocollect",
+                # Labelled as sample data so it is never mistaken for real sales.
+                "source": "sample",
             }
         )
     return out

@@ -1,12 +1,12 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { Alert, Image, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import * as MediaLibrary from 'expo-media-library';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { api } from '../lib/api';
-import { toScanMatch } from '../lib/scan';
-import type { ScanMatch, ScanPhotos } from '../types';
+import { isSamplePrice, scanChoices, toScanMatch } from '../lib/scan';
+import type { BookFormat, GradeScanResult, ScanIdentification, ScanPhotos } from '../types';
 import { Button, GradeBadge, LoadingDots, Pill, colors, usd } from '../components/ui';
 
 type Props = { navigation: NativeStackNavigationProp<any> };
@@ -19,10 +19,24 @@ const STEPS: { role: Role; label: string; hint: string }[] = [
   { role: 'spine', label: 'Spine', hint: 'Turn the book so the spine faces the camera' },
 ];
 
+const FORMAT_LABELS: Record<BookFormat, string> = {
+  single_issue: 'Issue',
+  annual: 'Annual',
+  collected_edition: 'Collected',
+  other: 'Other',
+};
+
+const describe = (b: ScanIdentification) =>
+  `${b.title} #${b.issue_number}${b.format && b.format !== 'single_issue' ? ` (${FORMAT_LABELS[b.format]})` : ''}`;
+
+type ManualBook = { title: string; issue_number: string; publisher: string; year: string; format: BookFormat };
+const EMPTY_MANUAL: ManualBook = { title: '', issue_number: '', publisher: '', year: '', format: 'single_issue' };
+
 /**
  * Live camera scan (used when demo mode is off). Guides the user through three
  * photos (front, back, spine; back and spine can be skipped), sends them to
- * POST /vision/grade, shows the result, and saves the book with its report.
+ * POST /vision/grade, asks the user to confirm which book it is (or type it in),
+ * then saves the book with its grade report.
  */
 export default function LiveScanner({ navigation }: Props) {
   const [permission, requestPermission] = useCameraPermissions();
@@ -31,22 +45,46 @@ export default function LiveScanner({ navigation }: Props) {
   const [phase, setPhase] = useState<Phase>('capture');
   const [step, setStep] = useState(0);
   const [photos, setPhotos] = useState<Partial<ScanPhotos>>({});
-  const [match, setMatch] = useState<ScanMatch | null>(null);
+  const [result, setResult] = useState<GradeScanResult | null>(null);
+  // Index into the choices, or 'manual' when the user typed the book in.
+  const [choice, setChoice] = useState<number | 'manual'>(0);
+  const [manual, setManual] = useState<ManualBook>(EMPTY_MANUAL);
+  const [manualBook, setManualBook] = useState<ScanIdentification | null>(null);
+  const [value, setValue] = useState<{ amount: number | null; source: string | null; loading: boolean }>({
+    amount: null,
+    source: null,
+    loading: false,
+  });
   const cameraRef = useRef<CameraView>(null);
 
   const reset = useCallback(() => {
     setPhotos({});
     setStep(0);
-    setMatch(null);
+    setResult(null);
+    setChoice(0);
+    setManual(EMPTY_MANUAL);
+    setManualBook(null);
     setPhase('capture');
+  }, []);
+
+  const reprice = useCallback(async (book: ScanIdentification, grade: number) => {
+    setValue({ amount: null, source: null, loading: true });
+    try {
+      const est = await api.estimateValue(book.title, book.issue_number, grade);
+      setValue({ amount: est.value, source: est.source, loading: false });
+    } catch {
+      setValue({ amount: null, source: null, loading: false }); // save without a value
+    }
   }, []);
 
   const grade = useCallback(async (taken: Partial<ScanPhotos>) => {
     if (!taken.front) return;
     setPhase('grading');
     try {
-      const result = await api.gradeScan({ front: taken.front, back: taken.back, spine: taken.spine });
-      setMatch(toScanMatch(result));
+      const graded = await api.gradeScan({ front: taken.front, back: taken.back, spine: taken.spine });
+      setResult(graded);
+      setChoice(0);
+      setValue({ amount: graded.estimated_value ?? null, source: graded.value_source ?? null, loading: false });
       setPhase('review');
     } catch (err: any) {
       setPhase('capture');
@@ -79,18 +117,50 @@ export default function LiveScanner({ navigation }: Props) {
     }
   }, [advance, libraryPermission, phase, photos, step]);
 
+  const choices = result ? scanChoices(result) : [];
+  const chosen: ScanIdentification | null =
+    choice === 'manual' ? manualBook : (choices[choice] ?? null);
+
+  const pick = (i: number) => {
+    if (!result || i === choice) return;
+    setChoice(i);
+    if (i === 0) {
+      setValue({ amount: result.estimated_value ?? null, source: result.value_source ?? null, loading: false });
+    } else {
+      reprice(choices[i], result.report.grade);
+    }
+  };
+
+  const useManual = () => {
+    if (!result) return;
+    const year = parseInt(manual.year, 10);
+    const book: ScanIdentification = {
+      title: manual.title.trim(),
+      issue_number: manual.issue_number.trim().replace(/^#/, ''),
+      publisher: manual.publisher.trim() || 'Unknown',
+      year: Number.isFinite(year) ? year : null,
+      format: manual.format,
+      key_note: null,
+      signature_detected: false,
+      notes: 'Entered by hand',
+    };
+    setManualBook(book);
+    setChoice('manual');
+    reprice(book, result.report.grade);
+  };
+
   const save = useCallback(async () => {
-    if (!match) return;
+    if (!result || !chosen) return;
     setPhase('saving');
     try {
-      const comic = await api.saveScan(match, photos.front);
+      const comic = await api.saveScan(toScanMatch(result, chosen, value.amount), photos.front);
       reset();
       navigation.navigate('ComicDetail', { comicId: comic.id });
     } catch (err: any) {
       setPhase('review');
       Alert.alert('Could not save', err?.message ?? 'Unknown error');
     }
-  }, [match, navigation, photos.front, reset]);
+  }, [chosen, navigation, photos.front, reset, result, value.amount]);
 
   if (!permission?.granted) {
     return (
@@ -106,33 +176,96 @@ export default function LiveScanner({ navigation }: Props) {
     );
   }
 
-  if ((phase === 'review' || phase === 'saving') && match) {
-    const { comic, report } = match;
+  if ((phase === 'review' || phase === 'saving') && result) {
+    const { report } = result;
+    const manualReady = manual.title.trim() !== '' && manual.issue_number.trim() !== '';
     return (
-      <ScrollView className="flex-1 bg-ink-950" contentContainerStyle={{ padding: 20, paddingTop: 56 }}>
-        <Text className="text-white text-4xl font-display uppercase">Result</Text>
+      <ScrollView className="flex-1 bg-ink-950" contentContainerStyle={{ padding: 20, paddingTop: 56, paddingBottom: 40 }}>
+        <Text className="text-white text-4xl font-display uppercase">Is this your book?</Text>
         <View className="flex-row gap-3 mt-4">
           {photos.front ? (
             <Image source={{ uri: photos.front }} style={{ width: 96, height: 144, borderRadius: 12 }} />
           ) : null}
           <View className="flex-1">
-            <Text className="text-pop-yellow text-xl font-bold">
-              {comic.title} #{comic.issue_number}
-            </Text>
-            <Text className="text-neutral-400">
-              {comic.publisher}
-              {comic.year ? ` · ${comic.year}` : ''}
-            </Text>
-            {comic.key_note ? <Text className="text-pop-cyan mt-1">{comic.key_note}</Text> : null}
-            <View className="flex-row items-center gap-2 mt-2">
+            <View className="flex-row items-center gap-2">
               <GradeBadge grade={report.grade} />
               <Text className="text-neutral-300">
                 Likely {report.grade_low} to {report.grade_high}
               </Text>
             </View>
-            <Text className="text-neutral-400 mt-1">
-              Raw value {usd(comic.current_market_value)} · {Math.round(match.match_confidence * 100)}% match
+            <Text className="text-neutral-400 mt-2">
+              Raw value {value.loading ? '…' : usd(value.amount)}
             </Text>
+            {!value.loading && isSamplePrice(value.source) ? (
+              <Text className="text-neutral-500 text-xs mt-1">
+                Sample estimate: real raw sales prices are not connected yet.
+              </Text>
+            ) : null}
+          </View>
+        </View>
+
+        {/* Pick the identification */}
+        <View className="mt-5 gap-2">
+          {choices.map((book, i) => {
+            const selected = choice === i;
+            return (
+              <Pressable
+                key={`${book.title}-${book.issue_number}-${book.format}-${i}`}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+                onPress={() => pick(i)}
+                className="rounded-2xl border px-4 py-3"
+                style={{ borderColor: selected ? colors.yellow : colors.ink800, backgroundColor: colors.ink900 }}
+              >
+                <Text className="font-bold" style={{ color: selected ? colors.yellow : '#f5f5fa' }}>
+                  {describe(book)}
+                </Text>
+                <Text className="text-neutral-400 text-xs mt-0.5">
+                  {book.publisher}
+                  {book.year ? ` · ${book.year}` : ''}
+                  {i === 0 ? ` · best match, ${Math.round(result.match_confidence * 100)}% sure` : ''}
+                </Text>
+                {book.key_note ? <Text className="text-pop-cyan text-xs mt-1">{book.key_note}</Text> : null}
+              </Pressable>
+            );
+          })}
+
+          {/* Not listed: type it in */}
+          <View
+            className="rounded-2xl border px-4 py-3"
+            style={{ borderColor: choice === 'manual' ? colors.yellow : colors.ink800, backgroundColor: colors.ink900 }}
+          >
+            <Text className="font-bold text-white">
+              {choice === 'manual' && manualBook ? `Using: ${describe(manualBook)}` : 'Not listed? Enter it'}
+            </Text>
+            <View className="flex-row gap-2 mt-2">
+              <Field placeholder="Series" value={manual.title} onChange={(t) => setManual({ ...manual, title: t })} flex={3} />
+              <Field placeholder="Issue #" value={manual.issue_number} onChange={(t) => setManual({ ...manual, issue_number: t })} flex={1} />
+            </View>
+            <View className="flex-row gap-2 mt-2">
+              <Field placeholder="Publisher" value={manual.publisher} onChange={(t) => setManual({ ...manual, publisher: t })} flex={2} />
+              <Field placeholder="Year" value={manual.year} onChange={(t) => setManual({ ...manual, year: t.replace(/\D/g, '') })} flex={1} numeric />
+            </View>
+            <View className="flex-row gap-2 mt-2">
+              {(['single_issue', 'annual', 'collected_edition'] as BookFormat[]).map((f) => (
+                <Text
+                  key={f}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: manual.format === f }}
+                  onPress={() => setManual({ ...manual, format: f })}
+                  className="rounded-full border px-3 py-1 text-xs font-bold"
+                  style={{
+                    borderColor: manual.format === f ? colors.cyan : colors.ink800,
+                    color: manual.format === f ? colors.cyan : colors.muted,
+                  }}
+                >
+                  {FORMAT_LABELS[f]}
+                </Text>
+              ))}
+            </View>
+            <View className="mt-3">
+              <Button label="Use these details" tone="ghost" onPress={useManual} disabled={!manualReady} />
+            </View>
           </View>
         </View>
 
@@ -157,7 +290,11 @@ export default function LiveScanner({ navigation }: Props) {
             <LoadingDots label="Saving to your Vault..." />
           ) : (
             <>
-              <Button label="Add to Vault" onPress={save} />
+              <Button
+                label={chosen ? `Add ${describe(chosen)} to Vault` : 'Add to Vault'}
+                onPress={save}
+                disabled={!chosen || value.loading}
+              />
               <Button label="Retake photos" tone="ghost" onPress={reset} />
             </>
           )}
@@ -236,5 +373,33 @@ export default function LiveScanner({ navigation }: Props) {
         )}
       </View>
     </View>
+  );
+}
+
+function Field({
+  placeholder,
+  value,
+  onChange,
+  flex,
+  numeric,
+}: {
+  placeholder: string;
+  value: string;
+  onChange: (text: string) => void;
+  flex: number;
+  numeric?: boolean;
+}) {
+  return (
+    <TextInput
+      value={value}
+      onChangeText={onChange}
+      placeholder={placeholder}
+      placeholderTextColor={colors.muted}
+      accessibilityLabel={placeholder}
+      keyboardType={numeric ? 'number-pad' : 'default'}
+      className="rounded-xl border bg-ink-950 px-3 py-2 text-white"
+      // flexBasis/minWidth 0 so the boxes share the row instead of overflowing it.
+      style={{ flexGrow: flex, flexBasis: 0, minWidth: 0, borderColor: colors.ink800 }}
+    />
   );
 }

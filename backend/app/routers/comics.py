@@ -154,6 +154,7 @@ def create_comic(
         # Fill defaults explicitly for brand new rows.
         row.setdefault("publisher", body.publisher)
         row.setdefault("grade_type", body.grade_type)
+        row.setdefault("format", body.format)
 
     # comics.user_id references profiles(id); make sure the profile row exists.
     sb.table("profiles").upsert({"id": user_id}, ignore_duplicates=True).execute()

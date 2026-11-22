@@ -41,7 +41,8 @@ comicgrade-ai/
     ├── 001_initial_schema.sql
     ├── 002_storage_bucket.sql
     ├── 003_grade_type.sql
-    └── 004_grading_portfolio_runs.sql
+    ├── 004_grading_portfolio_runs.sql
+    └── 005_comic_format.sql
 ```
 
 ## Quick demo (no backend needed)
@@ -65,6 +66,8 @@ What the demo shows:
 
 Titles in the sample set are real books. Grades, dollar values, run gaps and grade reports are **illustrative demo data**, and covers are generated placeholders. To show the same collection from a real backend, load it with `backend/scripts/seed_demo.py` (see below).
 
+**Going live** (Supabase, hosting, phone test, benchmark): see [`docs/go-live.md`](docs/go-live.md). Every push runs the backend tests and the frontend type-check on GitHub (`.github/workflows/ci.yml`).
+
 ## 1. Prerequisites
 
 - Node.js ≥ 18 and npm (frontend)
@@ -80,6 +83,7 @@ Titles in the sample set are real books. Grades, dollar values, run gaps and gra
    2. `supabase/migrations/002_storage_bucket.sql`
    3. `supabase/migrations/003_grade_type.sql` (raw vs slabbed separation)
    4. `supabase/migrations/004_grading_portfolio_runs.sql` (grade reports, value snapshots, series catalog)
+   5. `supabase/migrations/005_comic_format.sql` (annuals and collected editions are separate from single issues)
 
    (Or use the Supabase CLI: `supabase link --project-ref <ref> && supabase db push`.)
 3. Create a test user under **Authentication → Users** and copy its user id.
@@ -108,6 +112,7 @@ uvicorn app.main:app --reload --port 8000
 
 **Collection.**
 - `POST /comics`: create a comic. Send an `id` to update that book instead of adding a second one, and an optional `report` (from `/vision/grade`) to store its grade report.
+- `GET /pricing/estimate?title=&issue_number=&grade=`: value for a book not saved yet (used when the user corrects a scan).
 - `GET /comics/{id}/grade_report`: the stored scan report, or one estimated from the stored grade. Slab economics are always computed from the book's current value.
 - `POST /comics/{id}/cover`: upload the cover photo to Storage and attach it.
 - `POST /comics/{id}/prices?price=249.99&source=ebay`: logs a price point and updates `current_market_value`.
@@ -152,7 +157,7 @@ npx expo start
 ## 5. Full flow to try
 
 1. Start the backend, then the Expo app.
-2. **Scan** tab → photograph the front, back and spine (back and spine can be skipped) → `/vision/grade` returns the identification, grade range and per-area scores → **Add to Vault** saves the book with its report and uploads the front photo as the cover.
+2. **Scan** tab → photograph the front, back and spine (back and spine can be skipped) → `/vision/grade` returns the best identification plus up to two alternatives, the grade range and per-area scores → on **Is this your book?** pick the right one or type it in (the value is re-priced) → **Add to Vault** saves the book with its report and uploads the front photo as the cover.
 3. **Collection** tab → your scan is grouped by publisher with its grade badge.
 4. Tap a comic → **log price points** → the timeline and value delta update.
 5. **Dashboard** tab → total collection value, average grade, gem-tier count, top holdings.
@@ -161,5 +166,6 @@ npx expo start
 
 - Vision **mock** mode returns plausible synthetic results. Set `VISION_PROVIDER=claude` (or `openai`) for real identification and grading.
 - RLS policies restrict each user to their own rows; the backend uses the service-role key, so it bypasses RLS by design.
-- No sign-in screen yet: the app sends a Supabase token when a session exists, otherwise the backend falls back to `DEV_USER_ID` (only while `AUTH_REQUIRED=false`).
+- Sign-in uses Supabase email codes and is required whenever the app points at a real Supabase project. With the placeholder Supabase config, sign-in is skipped and the backend falls back to `DEV_USER_ID` (only while `AUTH_REQUIRED=false`).
+- Raw values come from a sample (mock) provider until a real raw-comps source is chosen; the app labels them as sample estimates.
 - Books from the backend have no `cover_palette`, so books without a cover photo show the default placeholder colors.
